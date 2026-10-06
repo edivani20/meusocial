@@ -1033,6 +1033,44 @@ app.post('/api/pagamentos/preferencia', async (req, res) => {
     }
 });
 
+app.post('/api/pagamentos/pix', async (req, res) => {
+    const { plano, usuario } = req.body || {};
+    const configuracao = PLANOS_PAGAMENTO[plano];
+
+    if (!configuracao) return res.status(400).json({ sucesso: false, erro: 'Plano inválido.' });
+    if (!MP_ACCESS_TOKEN) return res.status(503).json({ sucesso: false, erro: 'MERCADOPAGO_ACCESS_TOKEN não configurado no servidor.' });
+    if (!usuario || !/^\S+@\S+\.\S+$/.test(usuario)) {
+        return res.status(400).json({ sucesso: false, erro: 'É necessário ter um e-mail válido para gerar o Pix.' });
+    }
+
+    try {
+        const idempotencyKey = `pix-${plano.toLowerCase()}-${usuario}-${Date.now()}`;
+        const dados = await mercadoPagoRequest('/v1/payments', {
+            method: 'POST',
+            headers: { 'X-Idempotency-Key': idempotencyKey },
+            body: JSON.stringify({
+                transaction_amount: configuracao.valor,
+                description: configuracao.titulo,
+                payment_method_id: 'pix',
+                external_reference: `${plano}:${usuario}:${Date.now()}`,
+                payer: { email: usuario }
+            })
+        });
+        const transacao = dados.point_of_interaction?.transaction_data || {};
+        res.json({
+            sucesso: true,
+            pagamento_id: dados.id,
+            status: dados.status,
+            qr_code: transacao.qr_code || '',
+            qr_code_base64: transacao.qr_code_base64 || '',
+            ticket_url: transacao.ticket_url || ''
+        });
+    } catch (error) {
+        console.error('Erro ao criar Pix no Mercado Pago:', error.message);
+        res.status(502).json({ sucesso: false, erro: 'Não foi possível gerar o Pix. Verifique as credenciais e o e-mail da conta.' });
+    }
+});
+
 app.post('/api/pagamentos/webhook', async (req, res) => {
     console.log('Notificação Mercado Pago recebida:', JSON.stringify(req.body || req.query));
     res.sendStatus(200);

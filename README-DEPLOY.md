@@ -52,3 +52,7 @@ O plano gratuito do Render pode perder arquivos locais após reinício ou suspen
 ## Mercado Pago
 
 No serviço `meusocial-api`, cadastre `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET`, `APP_URL=https://meusocial-frontend.onrender.com` e `MERCADOPAGO_NOTIFICATION_URL=https://meusocial-api.onrender.com/api/pagamentos/webhook`. Os botões VIP chamam `POST /api/pagamentos/preferencia` e redirecionam para o checkout do Mercado Pago.
+
+## Pix direto
+
+Os botões VIP usam `POST /api/pagamentos/pix` e geram diretamente o pagamento Pix pelo Mercado Pago. A API retorna `qr_code`, `qr_code_base64` e `ticket_url` para exibição do copia-e-cola e QR Code. O usuário precisa estar autenticado com e-mail válido.
