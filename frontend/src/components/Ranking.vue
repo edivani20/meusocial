@@ -7,7 +7,7 @@ const carregando = ref(true)
 onMounted(async () => {
   carregando.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/ranking')
+    const res = await fetch('https://meusocial-api.onrender.com/api/ranking')
     const data = await res.json()
     if (data.sucesso) topConselheiros.value = data.ranking
   } catch (error) {

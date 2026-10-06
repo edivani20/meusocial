@@ -62,7 +62,7 @@ const tremerSino = () => {
 
 const carregarNotificacoes = async () => {
   try {
-    const res = await fetch(`https://meusocial.onrender.com/api/notificacoes/${props.usuarioLogado}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/notificacoes/${props.usuarioLogado}`)
     const data = await res.json()
     if (data.sucesso) {
       const novasNotificacoes = data.notificacoes
@@ -85,7 +85,7 @@ const carregarNotificacoes = async () => {
 
 const marcarComoLida = async (id) => {
   try {
-    await fetch(`https://meusocial.onrender.com/api/notificacoes/ler/${id}`, { method: 'PUT' })
+    await fetch(`https://meusocial-api.onrender.com/api/notificacoes/ler/${id}`, { method: 'PUT' })
     const notif = notificacoes.value.find(n => n.id === id)
     if (notif) notif.lida = 1
   } catch (error) {
@@ -95,7 +95,7 @@ const marcarComoLida = async (id) => {
 
 const marcarTodasComoLidas = async () => {
   try {
-    await fetch(`https://meusocial.onrender.com/api/notificacoes/ler-todas/${props.usuarioLogado}`, { method: 'PUT' })
+    await fetch(`https://meusocial-api.onrender.com/api/notificacoes/ler-todas/${props.usuarioLogado}`, { method: 'PUT' })
     notificacoes.value.forEach(n => n.lida = 1)
   } catch (error) {
     console.error('Erro ao marcar todas como lidas:', error)

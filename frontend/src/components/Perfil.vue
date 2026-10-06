@@ -34,7 +34,7 @@ const carregarDadosPerfil = async () => {
     const fotoLocal = localStorage.getItem('foto_perfil')
     if (fotoLocal) fotoPerfil.value = fotoLocal
 
-    const res = await fetch(`https://meusocial.onrender.com/api/perfil/${props.usuarioLogado}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/perfil/${props.usuarioLogado}`)
     const data = await res.json()
     if (data.sucesso) {
       nomeExibicao.value = data.nome_exibicao || props.usuarioLogado.split('@')[0]
@@ -95,7 +95,7 @@ const salvarPerfil = async () => {
 
   salvando.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/perfil', {
+    const res = await fetch('https://meusocial-api.onrender.com/api/perfil', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usuario: props.usuarioLogado, ...formEdicao.value })

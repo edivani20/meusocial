@@ -26,7 +26,7 @@ O arquivo `.env` real e o banco SQLite não fazem parte deste pacote. Cadastre a
 - Publish Directory: `dist`
 - Plan: `Free`
 
-O frontend já está apontado para `https://meusocial.onrender.com`.
+O frontend já está apontado para `https://meusocial-api.onrender.com`.
 
 ## Publicação pelo GitHub
 

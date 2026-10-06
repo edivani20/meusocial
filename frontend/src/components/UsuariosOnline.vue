@@ -8,7 +8,7 @@ let intervalo = null
 
 const carregarOnline = async () => {
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/usuarios-online')
+    const res = await fetch('https://meusocial-api.onrender.com/api/usuarios-online')
     const data = await res.json()
     if (data.sucesso) {
       usuariosOnline.value = data.online

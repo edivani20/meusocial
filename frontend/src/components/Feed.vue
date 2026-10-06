@@ -50,7 +50,7 @@ const buscarNomeExibicao = async (email) => {
     return nomeExibicaoCache.value[email]
   }
   try {
-    const res = await fetch(`https://meusocial.onrender.com/api/usuario/${email}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/usuario/${email}`)
     const data = await res.json()
     if (data.sucesso) {
       nomeExibicaoCache.value[email] = data.nome_exibicao
@@ -65,7 +65,7 @@ const buscarNomeExibicao = async (email) => {
 const carregarDesabafos = async () => {
   carregando.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/desabafos')
+    const res = await fetch('https://meusocial-api.onrender.com/api/desabafos')
     const data = await res.json()
     if (data.sucesso) {
       for (const post of data.desabafos) {
@@ -89,7 +89,7 @@ const publicar = async () => {
   if (!novoDesabafo.value) return
   publicando.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/desabafos', {
+    const res = await fetch('https://meusocial-api.onrender.com/api/desabafos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,7 +120,7 @@ const publicar = async () => {
 const consultarDigitacao = async () => {
   if (!desabafoSelecionado.value) return
   try {
-    const res = await fetch(`https://meusocial.onrender.com/api/conselhos/digitando/${desabafoSelecionado.value.id}?usuario=${encodeURIComponent(props.usuarioLogado)}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/conselhos/digitando/${desabafoSelecionado.value.id}?usuario=${encodeURIComponent(props.usuarioLogado)}`)
     const data = await res.json()
     if (data.sucesso) digitandoPessoas.value = data.digitando || []
   } catch (e) {}
@@ -138,13 +138,13 @@ const pararMonitorDigitacao = () => {
 }
 const informarDigitando = () => {
   if (!desabafoSelecionado.value || !textoConselho.value.trim()) return
-  fetch('https://meusocial.onrender.com/api/conselhos/digitando', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ desabafo_id: desabafoSelecionado.value.id, usuario: props.usuarioLogado, nome: props.usuarioLogado.split('@')[0], digitando: true }) }).catch(() => {})
+  fetch('https://meusocial-api.onrender.com/api/conselhos/digitando', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ desabafo_id: desabafoSelecionado.value.id, usuario: props.usuarioLogado, nome: props.usuarioLogado.split('@')[0], digitando: true }) }).catch(() => {})
   clearTimeout(digitandoPingTimer)
   digitandoPingTimer = setTimeout(encerrarDigitando, 4500)
 }
 const encerrarDigitando = () => {
   if (!desabafoSelecionado.value) return
-  fetch('https://meusocial.onrender.com/api/conselhos/digitando', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ desabafo_id: desabafoSelecionado.value.id, usuario: props.usuarioLogado, digitando: false }) }).catch(() => {})
+  fetch('https://meusocial-api.onrender.com/api/conselhos/digitando', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ desabafo_id: desabafoSelecionado.value.id, usuario: props.usuarioLogado, digitando: false }) }).catch(() => {})
 }
 const fecharConselhos = () => {
   encerrarDigitando()
@@ -162,7 +162,7 @@ const abrirConselhos = async (post) => {
   iniciarMonitorDigitacao()
 
   try {
-    const res = await fetch(`https://meusocial.onrender.com/api/conselhos/${post.id}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/conselhos/${post.id}`)
     const data = await res.json()
     if (data.sucesso) {
       listaConselhos.value = data.conselhos
@@ -177,7 +177,7 @@ const enviarConselho = async () => {
   enviandoConselho.value = true
 
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/conselhos', {
+    const res = await fetch('https://meusocial-api.onrender.com/api/conselhos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -224,7 +224,7 @@ const enviarReacao = async (conselhoId, reacao) => {
   enviandoReacao.value[conselhoId] = true
 
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/reacoes', {
+    const res = await fetch('https://meusocial-api.onrender.com/api/reacoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

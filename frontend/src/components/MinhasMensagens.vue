@@ -14,7 +14,7 @@ const enviandoResposta = ref(false)
 const carregarMeusDesabafos = async () => {
   carregando.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/desabafos')
+    const res = await fetch('https://meusocial-api.onrender.com/api/desabafos')
     const data = await res.json()
     if (data.sucesso) {
       const email = props.usuarioLogado
@@ -53,7 +53,7 @@ const visualizarDesabafo = async (post) => {
   textoResposta.value = ''
   
   try {
-    const res = await fetch(`https://meusocial.onrender.com/api/conselhos/${post.id}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/conselhos/${post.id}`)
     const data = await res.json()
     if (data.sucesso) {
       desabafoSelecionado.value.conselhos = data.conselhos
@@ -68,7 +68,7 @@ const enviarResposta = async () => {
   
   enviandoResposta.value = true
   try {
-    const res = await fetch('https://meusocial.onrender.com/api/conselhos', {
+    const res = await fetch('https://meusocial-api.onrender.com/api/conselhos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

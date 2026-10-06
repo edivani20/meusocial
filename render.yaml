@@ -36,6 +36,6 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://meusocial.onrender.com
+        value: https://meusocial-api.onrender.com
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false

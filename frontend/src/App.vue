@@ -35,7 +35,7 @@ const onLoginSucesso = (usuario, foto = '') => {
   mostrarToast(`Bem-vindo de volta, ${usuario.split('@')[0]}! 💜`, 'success')
 }
 const fazerLogout = async () => {
-  try { await fetch('https://meusocial.onrender.com/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario: usuarioLogado.value }) }) } catch (e) {}
+  try { await fetch('https://meusocial-api.onrender.com/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario: usuarioLogado.value }) }) } catch (e) {}
   localStorage.clear(); autenticado.value = false; usuarioLogado.value = ''; fotoPerfil.value = ''; telaAtual.value = 'login'
 }
 onMounted(() => {
