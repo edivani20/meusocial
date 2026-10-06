@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.db
+frontend/dist/
+.DS_Store
+npm-debug.log*
