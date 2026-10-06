@@ -11,8 +11,31 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-const GOOGLE_CLIENT_ID = '135718805364-1jlfpba4t7u1680lad1sgu2qe446c67h.apps.googleusercontent.com';
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const client = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+const MP_ACCESS_TOKEN = (process.env.MERCADOPAGO_ACCESS_TOKEN || '').trim();
+const APP_URL = (process.env.APP_URL || 'https://meusocial-frontend.onrender.com').replace(/\/$/, '');
+const MP_NOTIFICATION_URL = (process.env.MERCADOPAGO_NOTIFICATION_URL || 'https://meusocial-api.onrender.com/api/pagamentos/webhook').trim();
+const PLANOS_PAGAMENTO = {
+    Destaque: { titulo: 'Destaque 24h - Desabafa Coração', valor: 5.00 },
+    Premium: { titulo: 'Desabafa Premium - 30 dias', valor: 19.90 }
+};
+
+async function mercadoPagoRequest(path, options = {}) {
+    if (!MP_ACCESS_TOKEN) throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado no Render.');
+    const resposta = await fetch(`https://api.mercadopago.com${path}`, {
+        ...options,
+        headers: {
+            Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        }
+    });
+    const dados = await resposta.json().catch(() => ({}));
+    if (!resposta.ok) throw new Error(dados?.message || dados?.error || `Mercado Pago HTTP ${resposta.status}`);
+    return dados;
+}
 
 // ==========================================
 // INICIALIZAÇÃO DA IA (Groq ou Gemini)
@@ -958,7 +981,65 @@ app.get('/api/ranking', (req, res) => {
 });
 
 // ==========================================
-// 10. TIMER PARA SIMULAR ATIVIDADE
+// 10. PAGAMENTOS MERCADO PAGO
+// ==========================================
+app.post('/api/pagamentos/preferencia', async (req, res) => {
+    const { plano, usuario } = req.body || {};
+    const configuracao = PLANOS_PAGAMENTO[plano];
+
+    if (!configuracao) {
+        return res.status(400).json({ sucesso: false, erro: 'Plano inválido.' });
+    }
+    if (!MP_ACCESS_TOKEN) {
+        return res.status(503).json({ sucesso: false, erro: 'Pagamento ainda não configurado no servidor.' });
+    }
+
+    try {
+        const referencia = `${plano}:${usuario || 'anonimo'}:${Date.now()}`;
+        const preferencia = {
+            items: [{
+                id: plano.toLowerCase(),
+                title: configuracao.titulo,
+                quantity: 1,
+                currency_id: 'BRL',
+                unit_price: configuracao.valor
+            }],
+            external_reference: referencia,
+            back_urls: {
+                success: `${APP_URL}/?pagamento=sucesso`,
+                failure: `${APP_URL}/?pagamento=falhou`,
+                pending: `${APP_URL}/?pagamento=pendente`
+            },
+            auto_return: 'approved',
+            notification_url: MP_NOTIFICATION_URL
+        };
+
+        if (usuario && usuario.includes('@')) preferencia.payer = { email: usuario };
+
+        const dados = await mercadoPagoRequest('/checkout/preferences', {
+            method: 'POST',
+            body: JSON.stringify(preferencia)
+        });
+
+        res.json({
+            sucesso: true,
+            preferencia_id: dados.id,
+            url: dados.init_point,
+            url_teste: dados.sandbox_init_point || dados.init_point
+        });
+    } catch (error) {
+        console.error('Erro ao criar preferência do Mercado Pago:', error.message);
+        res.status(502).json({ sucesso: false, erro: 'Não foi possível iniciar o pagamento.' });
+    }
+});
+
+app.post('/api/pagamentos/webhook', async (req, res) => {
+    console.log('Notificação Mercado Pago recebida:', JSON.stringify(req.body || req.query));
+    res.sendStatus(200);
+});
+
+// ==========================================
+// 11. TIMER PARA SIMULAR ATIVIDADE
 // ==========================================
 setInterval(() => {
     fetch('http://localhost:3000/api/simular-online', { method: 'POST' }).catch(() => {});

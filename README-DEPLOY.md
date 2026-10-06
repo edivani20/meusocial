@@ -48,3 +48,7 @@ Consulte `backend/.env.example`. Nunca envie chaves reais ao GitHub.
 ## Observação sobre SQLite
 
 O plano gratuito do Render pode perder arquivos locais após reinício ou suspensão. Como este projeto usa SQLite, os dados são adequados apenas para testes. Para produção, use um banco persistente.
+
+## Mercado Pago
+
+No serviço `meusocial-api`, cadastre `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET`, `APP_URL=https://meusocial-frontend.onrender.com` e `MERCADOPAGO_NOTIFICATION_URL=https://meusocial-api.onrender.com/api/pagamentos/webhook`. Os botões VIP chamam `POST /api/pagamentos/preferencia` e redirecionam para o checkout do Mercado Pago.
