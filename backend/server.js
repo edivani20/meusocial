@@ -771,7 +771,7 @@ app.get('/api/descobrir', (req, res) => {
         const origemLat = Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : Number(eu?.latitude);
         const origemLon = Number.isFinite(lon) && lon >= -180 && lon <= 180 ? lon : Number(eu?.longitude);
         const temOrigem = Number.isFinite(origemLat) && Number.isFinite(origemLon);
-        let sql = `SELECT usuario, nome_exibicao, foto_perfil, bio, cidade, latitude, longitude, is_online FROM usuarios WHERE usuario NOT LIKE 'bot_%' AND usuario <> ? AND cidade <> ''`;
+        let sql = `SELECT usuario, nome_exibicao, foto_perfil, bio, cidade, latitude, longitude, is_online FROM usuarios WHERE usuario NOT LIKE 'bot_%' AND usuario <> ? AND (TRIM(COALESCE(cidade, '')) <> '' OR (latitude IS NOT NULL AND longitude IS NOT NULL))`;
         const params = [usuario];
         if (cidade) { sql += ` AND LOWER(cidade) LIKE LOWER(?)`; params.push(`%${cidade}%`); }
         sql += ` ORDER BY is_online DESC, nome_exibicao COLLATE NOCASE LIMIT 100`;
