@@ -62,6 +62,14 @@ const carregarDadosPerfil = async () => {
   }
 }
 
+const compartilharPerfil = async () => {
+  const link = `https://social-g1ub.onrender.com/?indicado=${encodeURIComponent(props.usuarioLogado)}`
+  try {
+    if (navigator.share) await navigator.share({ title: 'Desabafa Coração', text: 'Venha participar do Desabafa Coração!', url: link })
+    else { await navigator.clipboard.writeText(link); window.alert('Link de convite copiado!') }
+  } catch (e) {}
+}
+
 const abrirModal = () => {
   formEdicao.value = {
     nome_exibicao: nomeExibicao.value,
@@ -177,6 +185,7 @@ onMounted(carregarDadosPerfil)
       </div>
 
       <div class="flex gap-2 mt-4">
+        <button @click="compartilharPerfil" class="flex-1 bg-[#f0edff] hover:bg-[#e5e0ff] text-[#5149c8] font-semibold text-sm py-2 px-3 rounded-lg transition-colors">↗ Compartilhar</button>
         <button @click="abrirModal" class="flex-1 bg-[#f5f5f5] hover:bg-[#e9ecef] text-[#1A1A2E] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
           Editar Perfil

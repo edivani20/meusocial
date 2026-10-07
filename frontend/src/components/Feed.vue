@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import UsuariosOnline from './UsuariosOnline.vue'
 
 const props = defineProps({ usuarioLogado: String })
-const emit = defineEmits(['logout', 'toast'])
+const emit = defineEmits(['logout', 'toast', 'abrir-perfil'])
 const humorSelecionado = ref('')
 const humores = [{ emoji: '😄', nome: 'Bem' }, { emoji: '🙂', nome: 'Ok' }, { emoji: '😔', nome: 'Triste' }, { emoji: '😡', nome: 'Irritado' }, { emoji: '😰', nome: 'Ansioso' }]
 
@@ -90,6 +90,17 @@ const alternarSeguir = async (seguido) => {
     emit('toast', e.message || 'Erro ao seguir usuário.', 'error')
   } finally {
     processandoSeguir.value[seguido] = false
+  }
+}
+
+const compartilharPost = async (post) => {
+  const link = `https://social-g1ub.onrender.com/?indicado=${encodeURIComponent(post.autor)}`
+  const dados = { title: 'Desabafa Coração', text: 'Venha participar do Desabafa Coração!', url: link }
+  try {
+    if (navigator.share) await navigator.share(dados)
+    else { await navigator.clipboard.writeText(link); emit('toast', 'Link de convite copiado!', 'success') }
+  } catch (e) {
+    if (e?.name !== 'AbortError') emit('toast', 'Não foi possível compartilhar agora.', 'error')
   }
 }
 
@@ -376,14 +387,15 @@ onMounted(carregarDesabafos)
       </div>
       <div v-for="post in desabafosVisiveis" :key="post.id" class="bg-white rounded-2xl border border-[#eeeaff] px-4 sm:px-5 py-4 mx-3 sm:mx-0 mt-3 shadow-sm">
         <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-full overflow-hidden bg-[#f5f5f5] border-2 border-[#6C63FF] flex items-center justify-center text-[#6C63FF] font-bold text-sm flex-shrink-0">
+          <div @click="post.autor.includes('@') && emit('abrir-perfil', post.autor)" class="w-10 h-10 rounded-full overflow-hidden bg-[#f5f5f5] border-2 border-[#6C63FF] flex items-center justify-center text-[#6C63FF] font-bold text-sm flex-shrink-0" :class="post.autor.includes('@') ? 'cursor-pointer' : ''">
             <img v-if="post.foto_autor" :src="post.foto_autor" class="w-full h-full object-cover" />
             <span v-else>{{ post.nome_exibicao ? post.nome_exibicao.charAt(0).toUpperCase() : '?' }}</span>
           </div>
           <div class="flex-1">
             <div class="flex items-center gap-2">
-              <span class="font-bold text-sm text-[#1A1A2E]">{{ post.nome_exibicao || post.autor }}</span>
+              <span @click="post.autor.includes('@') && emit('abrir-perfil', post.autor)" class="font-bold text-sm text-[#1A1A2E]" :class="post.autor.includes('@') ? 'cursor-pointer' : ''">{{ post.nome_exibicao || post.autor }}</span>
               <button v-if="post.autor.includes('@') && post.autor !== usuarioLogado" @click="alternarSeguir(post.autor)" :disabled="processandoSeguir[post.autor]" class="text-[10px] font-bold text-[#6C63FF] hover:text-[#FF6B9D] disabled:opacity-50">{{ seguindoUsuarios[post.autor] ? 'Seguindo' : 'Seguir' }}</button>
+              <button @click="compartilharPost(post)" class="text-[10px] font-bold text-[#77748B] hover:text-[#6C63FF]" title="Compartilhar convite">↗ Compartilhar</button>
               <span class="text-xs text-[#8e8e8e]">• {{ formatarData(post.data_publicacao) }}</span>
               <span class="text-xs text-[#6C757D] ml-auto bg-[#f5f5f5] px-2 py-0.5 rounded-full">
                 {{ post.termometro }}
@@ -439,11 +451,11 @@ onMounted(carregarDesabafos)
           <div v-for="conselho in (mostrarTodosConselhos ? listaConselhos : listaConselhos.slice(0, 3))" :key="conselho.id" class="bg-[#f8f9fa] rounded-xl p-3">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full overflow-hidden bg-[#6C63FF] flex items-center justify-center text-white text-[10px] font-bold">
+                <div @click="emit('abrir-perfil', conselho.usuario || conselho.autor)" class="w-8 h-8 rounded-full overflow-hidden bg-[#6C63FF] flex items-center justify-center text-white text-[10px] font-bold cursor-pointer">
                   <img v-if="conselho.foto_autor" :src="conselho.foto_autor" class="w-full h-full object-cover" />
                   <span v-else>{{ conselho.autor.charAt(0).toUpperCase() }}</span>
                 </div>
-                <span class="font-bold text-sm text-[#1A1A2E]">{{ conselho.autor }}</span>
+                <span @click="emit('abrir-perfil', conselho.usuario || conselho.autor)" class="font-bold text-sm text-[#1A1A2E] cursor-pointer">{{ conselho.autor }}</span>
                 <span v-if="conselho.is_bot" class="text-[10px] bg-[#6C63FF]/10 text-[#6C63FF] px-2 py-0.5 rounded-full">🤖</span>
                 <span v-if="!conselho.is_bot && !conselho.autor.includes('Anônimo')" class="text-[10px] bg-[#6C63FF]/10 text-[#6C63FF] px-2 py-0.5 rounded-full">🟢 Real</span>
               </div>

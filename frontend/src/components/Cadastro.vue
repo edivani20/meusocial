@@ -28,11 +28,12 @@ const lidarCadastro = async () => {
     const res = await fetch('https://meusocial-api.onrender.com/api/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario: form.value.usuario, senha: form.value.senha })
+      body: JSON.stringify({ usuario: form.value.usuario, senha: form.value.senha, indicado_por: localStorage.getItem('indicado_por') || '' })
     })
     const data = await res.json()
 
     if (data.sucesso) {
+      localStorage.removeItem('indicado_por')
       sucesso.value = 'Bem-vindo! Conta criada com sucesso...'
       setTimeout(() => emit('cadastro-sucesso'), 1500)
     } else {

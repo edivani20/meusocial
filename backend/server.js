@@ -390,6 +390,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS conselhos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         desabafo_id INTEGER,
+        usuario TEXT DEFAULT '',
         autor TEXT,
         foto_autor TEXT DEFAULT '',
         texto TEXT,
@@ -397,6 +398,7 @@ db.serialize(() => {
         data_publicacao DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (desabafo_id) REFERENCES desabafos(id)
     )`);
+    db.run(`ALTER TABLE conselhos ADD COLUMN usuario TEXT DEFAULT ''`, () => {});
 
     db.run(`CREATE TABLE IF NOT EXISTS reacoes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -474,16 +476,24 @@ app.post('/api/login', (req, res) => {
     });
 });
 
+function aplicarIndicacao(indicadoPor, novoUsuario, callback = () => {}) {
+    if (!indicadoPor || !novoUsuario || indicadoPor === novoUsuario) return callback();
+    db.get(`SELECT 1 FROM usuarios WHERE usuario = ?`, [indicadoPor], (err, indicado) => {
+        if (err || !indicado) return callback();
+        db.run(`INSERT OR IGNORE INTO seguidores (seguidor, seguido) VALUES (?, ?)`, [novoUsuario, indicadoPor], () => callback());
+    });
+}
+
 app.post('/api/cadastro', (req, res) => {
-    const { usuario, senha } = req.body;
+    const { usuario, senha, indicado_por } = req.body;
     db.run(`INSERT INTO usuarios (usuario, senha) VALUES (?, ?)`, [usuario, senha], function(err) {
         if (err) return res.status(400).json({ sucesso: false, erro: 'Este usuário já existe.' });
-        res.json({ sucesso: true, usuario });
+        aplicarIndicacao(indicado_por, usuario, () => res.json({ sucesso: true, usuario, seguindo_indicador: !!indicado_por }));
     });
 });
 
 app.post('/api/auth/google', async (req, res) => {
-    const { token } = req.body;
+    const { token, indicado_por } = req.body;
     try {
         const ticket = await client.verifyIdToken({ idToken: token, audience: GOOGLE_CLIENT_ID });
         const payload = ticket.getPayload();
@@ -533,12 +543,12 @@ app.post('/api/auth/google', async (req, res) => {
                             console.error('Erro ao cadastrar:', err2);
                             return res.status(500).json({ sucesso: false, erro: 'Erro ao cadastrar.' });
                         }
-                        res.json({
+                        aplicarIndicacao(indicado_por, email, () => res.json({
                             sucesso: true,
                             usuario: email,
                             foto_perfil: fotoGoogle,
                             nome_exibicao: nome
-                        });
+                        }));
                     }
                 );
             }
@@ -609,18 +619,20 @@ app.put('/api/notificacoes/ler-todas/:usuario', (req, res) => {
 app.get('/api/perfil/:email', (req, res) => {
     const email = req.params.email;
     const visitante = req.query.visualizador || '';
-    db.get(`SELECT nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, is_premium FROM usuarios WHERE usuario = ?`, [email], (err, user) => {
+    db.get(`SELECT usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, is_premium FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [email, email], (err, user) => {
         if (err || !user) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        const identidade = user.usuario;
         
-        db.get(`SELECT COUNT(*) as total FROM conselhos WHERE autor = ?`, [email], (err, conselhos) => {
-            db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [email], (err, seguidores) => {
-                db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [email], (err, seguindo) => {
-                    const consultarSeguindo = visitante && visitante !== email
-                        ? new Promise(resolve => db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [visitante, email], (e, row) => resolve(!!row)))
+        db.get(`SELECT COUNT(*) as total FROM conselhos WHERE usuario = ? OR autor = ?`, [identidade, identidade], (err, conselhos) => {
+            db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [identidade], (err, seguidores) => {
+                db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [identidade], (err, seguindo) => {
+                    const consultarSeguindo = visitante && visitante !== identidade
+                        ? new Promise(resolve => db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [visitante, identidade], (e, row) => resolve(!!row)))
                         : Promise.resolve(false);
                     consultarSeguindo.then(isSeguindo => res.json({
                 sucesso: true, 
-                nome_exibicao: user.nome_exibicao || email.split('@')[0],
+                usuario: identidade,
+                nome_exibicao: user.nome_exibicao || identidade.split('@')[0],
                 bio: user.bio || 'Em busca de conselhos...',
                 status_relacionamento: user.status_relacionamento || 'Indefinido',
                 tempo_relacionamento: user.tempo_relacionamento || 'Não informado',
@@ -640,9 +652,12 @@ app.get('/api/perfil/:email', (req, res) => {
 app.get('/api/seguir/status', (req, res) => {
     const { seguidor, seguido } = req.query;
     if (!seguidor || !seguido) return res.status(400).json({ sucesso: false, erro: 'Usuários não informados.' });
-    db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], (err, row) => {
+    db.get(`SELECT usuario FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [seguido, seguido], (err, alvo) => {
+        const identidade = alvo?.usuario || seguido;
+        db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, identidade], (err, row) => {
         if (err) return res.status(500).json({ sucesso: false, erro: err.message });
         res.json({ sucesso: true, seguindo: !!row });
+        });
     });
 });
 
@@ -650,13 +665,15 @@ app.post('/api/seguir', (req, res) => {
     const { seguidor, seguido } = req.body || {};
     if (!seguidor || !seguido) return res.status(400).json({ sucesso: false, erro: 'Usuários não informados.' });
     if (seguidor === seguido) return res.status(400).json({ sucesso: false, erro: 'Você não pode seguir a si mesmo.' });
-    db.get(`SELECT 1 FROM usuarios WHERE usuario = ?`, [seguido], (err, alvo) => {
+    db.get(`SELECT usuario FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [seguido, seguido], (err, alvo) => {
         if (err || !alvo) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
-        db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], (checkErr, row) => {
+        const identidadeSeguida = alvo.usuario;
+        if (seguidor === identidadeSeguida) return res.status(400).json({ sucesso: false, erro: 'Você não pode seguir a si mesmo.' });
+        db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, identidadeSeguida], (checkErr, row) => {
             if (checkErr) return res.status(500).json({ sucesso: false, erro: checkErr.message });
-            const finalizar = (seguindo) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [seguido], (e1, seguidores) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [seguidor], (e2, seguindoTotal) => res.json({ sucesso: true, seguindo, total_seguidores: seguidores?.total || 0, total_seguindo: seguindoTotal?.total || 0 })));
-            if (row) return db.run(`DELETE FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(false));
-            db.run(`INSERT INTO seguidores (seguidor, seguido) VALUES (?, ?)`, [seguidor, seguido], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(true));
+            const finalizar = (seguindo) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [identidadeSeguida], (e1, seguidores) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [seguidor], (e2, seguindoTotal) => res.json({ sucesso: true, seguindo, usuario: identidadeSeguida, total_seguidores: seguidores?.total || 0, total_seguindo: seguindoTotal?.total || 0 })));
+            if (row) return db.run(`DELETE FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, identidadeSeguida], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(false));
+            db.run(`INSERT INTO seguidores (seguidor, seguido) VALUES (?, ?)`, [seguidor, identidadeSeguida], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(true));
         });
     });
 });
@@ -847,9 +864,9 @@ app.post('/api/conselhos', async (req, res) => {
     const temPalavrao = detectarPalavroes(texto);
     const isBot = autor.toLowerCase().startsWith('bot_') || autor.toLowerCase().includes('bot_');
 
-    db.get(`SELECT is_premium, nome_exibicao, foto_perfil FROM usuarios WHERE usuario = ?`, [autor], (err, user) => {
+    db.get(`SELECT usuario, is_premium, nome_exibicao, foto_perfil FROM usuarios WHERE usuario = ?`, [autor], (err, user) => {
         if (err || !user) {
-            db.get(`SELECT is_premium, nome_exibicao, foto_perfil FROM usuarios WHERE nome_exibicao = ?`, [autor], (err2, user2) => {
+            db.get(`SELECT usuario, is_premium, nome_exibicao, foto_perfil FROM usuarios WHERE nome_exibicao = ?`, [autor], (err2, user2) => {
                 if (err2 || !user2) {
                     return res.status(400).json({ sucesso: false, erro: 'Usuário não encontrado.' });
                 }
@@ -885,8 +902,8 @@ app.post('/api/conselhos', async (req, res) => {
         }
 
         function salvarConselho() {
-            db.run(`INSERT INTO conselhos (desabafo_id, autor, foto_autor, texto, is_bot) VALUES (?, ?, ?, ?, ?)`, 
-            [desabafo_id, nomeExibicao, fotoPerfil, textoFiltrado, isBot ? 1 : 0], function(err) {
+            db.run(`INSERT INTO conselhos (desabafo_id, usuario, autor, foto_autor, texto, is_bot) VALUES (?, ?, ?, ?, ?, ?)`, 
+            [desabafo_id, anonimo ? '' : user.usuario, nomeExibicao, fotoPerfil, textoFiltrado, isBot ? 1 : 0], function(err) {
                 if (err) return res.status(500).json({ sucesso: false, erro: 'Erro ao salvar conselho.' });
                 
                 const conselhoId = this.lastID;

@@ -4,6 +4,7 @@ import Login from './components/Login.vue'
 import Cadastro from './components/Cadastro.vue'
 import Feed from './components/Feed.vue'
 import Perfil from './components/Perfil.vue'
+import PerfilPublico from './components/PerfilPublico.vue'
 import Ranking from './components/Ranking.vue'
 import Planos from './components/Planos.vue'
 import Notificacoes from './components/Notificacoes.vue'
@@ -15,9 +16,13 @@ const fotoPerfil = ref('')
 const telaAtual = ref('login')
 const abaAtiva = ref('feed')
 const mostrarMensagens = ref(false)
+const perfilVisualizado = ref('')
 const modoEscuro = ref(localStorage.getItem('modo_escuro') === 'true')
 const toast = ref({ visivel: false, mensagem: '', tipo: 'info' })
 let toastTimer
+
+const indicador = new URLSearchParams(window.location.search).get('indicado')
+if (indicador && indicador.includes('@')) localStorage.setItem('indicado_por', indicador)
 
 const mostrarToast = (mensagem, tipo = 'info') => {
   toast.value = { visivel: true, mensagem, tipo }
@@ -58,10 +63,11 @@ onMounted(() => {
       </div></nav>
       <main class="max-w-6xl mx-auto px-0 sm:px-4 lg:px-6"><div class="desktop-layout">
         <aside class="side-card left-side hidden lg:block"><p class="side-label">NAVEGAÇÃO</p><button @click="abaAtiva = 'feed'" :class="['side-link', abaAtiva === 'feed' && 'active']">🏠 <span>Meu feed</span></button><button @click="abaAtiva = 'ranking'" :class="['side-link', abaAtiva === 'ranking' && 'active']">🏆 <span>Quem mais ajuda</span></button><button @click="abaAtiva = 'planos'" :class="['side-link', abaAtiva === 'planos' && 'active']">✨ <span>Desabafa VIP</span></button><button @click="abaAtiva = 'perfil'" :class="['side-link', abaAtiva === 'perfil' && 'active']">👤 <span>Meu perfil</span></button><div class="quote-card mt-6"><span>“</span><p>Todo sentimento merece ser ouvido.</p></div></aside>
-        <section class="feed-column"><transition name="fade" mode="out-in"><Feed v-if="abaAtiva === 'feed'" :usuarioLogado="usuarioLogado" @logout="fazerLogout" @toast="mostrarToast" /><Ranking v-else-if="abaAtiva === 'ranking'" /><Planos v-else-if="abaAtiva === 'planos'" :usuarioLogado="usuarioLogado" @toast="mostrarToast" /><Perfil v-else :usuarioLogado="usuarioLogado" @logout="fazerLogout" /></transition></section>
+        <section class="feed-column"><transition name="fade" mode="out-in"><Feed v-if="abaAtiva === 'feed'" :usuarioLogado="usuarioLogado" @logout="fazerLogout" @toast="mostrarToast" @abrir-perfil="perfilVisualizado = $event" /><Ranking v-else-if="abaAtiva === 'ranking'" /><Planos v-else-if="abaAtiva === 'planos'" :usuarioLogado="usuarioLogado" @toast="mostrarToast" /><Perfil v-else :usuarioLogado="usuarioLogado" @logout="fazerLogout" /></transition></section>
         <aside class="side-card right-side hidden xl:block"><div class="mini-highlight"><span class="highlight-icon">💜</span><div><p class="font-bold">Você não está sozinho</p><p class="text-xs opacity-75 mt-1">Compartilhe o que sente. A comunidade está aqui.</p></div></div><div class="mt-5"><p class="side-label">LEMBRETE DE HOJE</p><p class="daily-message">Cuidar de si também é uma forma de coragem.</p></div></aside>
       </div></main>
       <MinhasMensagens v-if="mostrarMensagens" :usuarioLogado="usuarioLogado" @fechar="mostrarMensagens = false" /><button @click="abaAtiva = 'feed'" class="floating-action" title="Escrever um desabafo">✎</button>
+      <PerfilPublico v-if="perfilVisualizado" :usuario="perfilVisualizado" :usuarioLogado="usuarioLogado" @fechar="perfilVisualizado = ''" @toast="mostrarToast" />
       <nav class="bottom-nav"><button @click="abaAtiva = 'feed'" :class="{ active: abaAtiva === 'feed' }"><span>🏠</span><small>Feed</small></button><button @click="abaAtiva = 'ranking'" :class="{ active: abaAtiva === 'ranking' }"><span>🏆</span><small>Ranking</small></button><button @click="abaAtiva = 'planos'" :class="{ active: abaAtiva === 'planos' }"><span>✨</span><small>VIP</small></button><button @click="abaAtiva = 'perfil'" :class="{ active: abaAtiva === 'perfil' }"><span>👤</span><small>Perfil</small></button></nav>
     </div>
     <transition name="toast"><div v-if="toast.visivel" :class="['toast-message', `toast-${toast.tipo}`]">{{ toast.mensagem }}</div></transition>
