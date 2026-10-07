@@ -751,6 +751,17 @@ app.put('/api/perfil/localizacao', (req, res) => {
     });
 });
 
+app.put('/api/perfil/cidade', (req, res) => {
+    const { usuario, cidade } = req.body || {};
+    if (!usuario) return res.status(400).json({ sucesso: false, erro: 'Usuário não informado.' });
+    const cidadeLimpa = String(cidade || '').trim().substring(0, 120);
+    db.run(`UPDATE usuarios SET cidade = ? WHERE usuario = ?`, [cidadeLimpa, usuario], function(err) {
+        if (err) return res.status(500).json({ sucesso: false, erro: 'Não foi possível salvar a cidade.' });
+        if (!this.changes) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        res.json({ sucesso: true, cidade: cidadeLimpa });
+    });
+});
+
 // ==========================================
 // 5. DESCOBERTA E BATE-PAPO PRIVADO
 // ==========================================

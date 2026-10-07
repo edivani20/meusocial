@@ -13,6 +13,8 @@ const aviso = ref('')
 const usandoLocalizacao = ref(false)
 const latitude = ref(null)
 const longitude = ref(null)
+const cidadeSalva = ref(false)
+const salvandoCidade = ref(false)
 
 const buscar = async () => {
   carregando.value = true
@@ -35,49 +37,85 @@ const buscar = async () => {
   }
 }
 
+const salvarCoordenadas = async (lat, lon, cidadeDetectada = '', origem = 'GPS') => {
+  const res = await fetch('https://meusocial-api.onrender.com/api/perfil/localizacao', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario: props.usuarioLogado, latitude: lat, longitude: lon })
+  })
+  const data = await res.json()
+  if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível salvar a localização.')
+  latitude.value = lat
+  longitude.value = lon
+  usandoLocalizacao.value = true
+  if (cidadeDetectada && !cidadeSalva.value) {
+    cidade.value = cidadeDetectada
+    await fetch('https://meusocial-api.onrender.com/api/perfil/cidade', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario: props.usuarioLogado, cidade: cidadeDetectada })
+    }).catch(() => {})
+    cidadeSalva.value = true
+  }
+  aviso.value = `Localização por ${origem} ativada${cidadeDetectada ? `: ${cidadeDetectada}` : ''}.`
+  await buscar()
+}
+
+const localizarPorIp = async () => {
+  const res = await fetch('https://ipapi.co/json/')
+  const data = await res.json()
+  if (!Number.isFinite(Number(data.latitude)) || !Number.isFinite(Number(data.longitude))) throw new Error('Não foi possível localizar pelo IP.')
+  const cidadeIp = [data.city, data.region_code].filter(Boolean).join(' - ')
+  await salvarCoordenadas(Number(data.latitude), Number(data.longitude), cidadeIp, 'IP')
+}
+
 const ativarLocalizacao = () => {
   erro.value = ''
   aviso.value = ''
-  if (!window.isSecureContext) {
-    erro.value = 'Por segurança, o navegador só libera a localização em uma conexão HTTPS.'
-    return
-  }
-  if (!navigator.geolocation) {
-    erro.value = 'Seu navegador não oferece suporte à localização.'
-    return
-  }
   ativandoLocalizacao.value = true
+  const usarIp = async () => {
+    try { await localizarPorIp() }
+    catch (e) { erro.value = 'Não foi possível obter sua localização por GPS nem por IP.' }
+    finally { ativandoLocalizacao.value = false }
+  }
+  if (!navigator.geolocation || !window.isSecureContext) return usarIp()
   navigator.geolocation.getCurrentPosition(async pos => {
     try {
-      const res = await fetch('https://meusocial-api.onrender.com/api/perfil/localizacao', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario: props.usuarioLogado, latitude: pos.coords.latitude, longitude: pos.coords.longitude })
-      })
-      const data = await res.json()
-      if (res.status === 404) throw new Error('O servidor ainda não foi atualizado para salvar localização. Publique também o backend atualizado no Render e tente novamente.')
-      if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível salvar a localização.')
-      usandoLocalizacao.value = true
-      latitude.value = pos.coords.latitude
-      longitude.value = pos.coords.longitude
-      aviso.value = 'Localização aproximada ativada. Agora as distâncias serão calculadas em quilômetros.'
-      await buscar()
-    } catch (e) {
-      erro.value = e.message
-    } finally {
-      ativandoLocalizacao.value = false
-    }
-  }, error => {
-    ativandoLocalizacao.value = false
-    if (error.code === 1) erro.value = 'Permissão negada. Clique no cadeado da barra de endereço, permita Localização e tente novamente.'
-    else if (error.code === 2) erro.value = 'Não foi possível identificar sua localização. Confira se o GPS/localização do aparelho está ativo.'
-    else erro.value = 'A localização demorou demais. Tente novamente.'
-  }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 })
+      let cidadeGps = ''
+      try {
+        const geo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=pt-BR`).then(r => r.json())
+        cidadeGps = [geo.address?.city || geo.address?.town || geo.address?.municipality, geo.address?.state].filter(Boolean).join(' - ')
+      } catch (e) {}
+      await salvarCoordenadas(pos.coords.latitude, pos.coords.longitude, cidadeGps, 'GPS')
+    } catch (e) { erro.value = e.message }
+    finally { ativandoLocalizacao.value = false }
+  }, usarIp, { enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 })
+}
+
+const salvarCidade = async () => {
+  if (!cidade.value.trim() || salvandoCidade.value) return
+  salvandoCidade.value = true
+  erro.value = ''
+  try {
+    const res = await fetch('https://meusocial-api.onrender.com/api/perfil/cidade', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario: props.usuarioLogado, cidade: cidade.value })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível salvar a cidade.')
+    cidadeSalva.value = true
+    aviso.value = 'Cidade salva. Agora você também poderá encontrar pessoas da mesma região.'
+    await buscar()
+  } catch (e) { erro.value = e.message }
+  finally { salvandoCidade.value = false }
 }
 
 const carregarLocalizacaoSalva = async () => {
   try {
     const res = await fetch(`https://meusocial-api.onrender.com/api/perfil/${encodeURIComponent(props.usuarioLogado)}`)
     const data = await res.json()
+    if (data.sucesso && data.cidade) {
+      cidade.value = data.cidade
+      cidadeSalva.value = true
+    }
     if (data.sucesso && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
       latitude.value = Number(data.latitude)
       longitude.value = Number(data.longitude)
@@ -121,7 +159,7 @@ onMounted(async () => {
 
     <div class="bg-white rounded-2xl border border-[#efefef] p-4 shadow-sm">
       <div v-if="!usandoLocalizacao" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl bg-[#f7f5ff] border border-[#e9e5ff] mb-4">
-        <div><p class="font-bold text-sm text-[#1A1A2E]">Quer ver a distância em quilômetros?</p><p class="text-xs text-[#6C757D] mt-1">Clique para permitir sua localização aproximada. Sua localização exata não será mostrada.</p></div>
+        <div class="flex-1"><p class="font-bold text-sm text-[#1A1A2E]">Complete sua localização (opcional)</p><p class="text-xs text-[#6C757D] mt-1">Você pode informar sua cidade ou permitir a localização aproximada. Não é necessário fazer outro cadastro.</p><div class="flex gap-2 mt-3"><input v-model="cidade" placeholder="Cidade onde mora" class="min-w-0 flex-1 bg-white border border-[#e9e5ff] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#6C63FF]" /><button v-if="!cidadeSalva" @click="salvarCidade" :disabled="salvandoCidade || !cidade.trim()" class="rounded-lg px-3 py-2 text-xs font-bold text-[#5149c8] bg-white border border-[#dcd6ff] disabled:opacity-50">{{ salvandoCidade ? 'Salvando...' : 'Salvar cidade' }}</button></div></div>
         <button @click="ativarLocalizacao" :disabled="ativandoLocalizacao || usandoLocalizacao" class="shrink-0 rounded-xl px-4 py-3 text-xs font-bold text-white bg-[#6C63FF] hover:opacity-90 disabled:opacity-60">{{ ativandoLocalizacao ? 'Aguardando permissão...' : (usandoLocalizacao ? '✓ Localização ativa' : 'Ativar localização') }}</button>
       </div>
       <div class="grid sm:grid-cols-[1fr_150px_auto] gap-3">
