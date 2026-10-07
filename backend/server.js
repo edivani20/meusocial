@@ -738,6 +738,19 @@ app.put('/api/perfil', (req, res) => {
     }
 });
 
+app.put('/api/perfil/localizacao', (req, res) => {
+    const { usuario, latitude, longitude } = req.body || {};
+    const lat = Number(latitude), lon = Number(longitude);
+    if (!usuario || !Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        return res.status(400).json({ sucesso: false, erro: 'Localização inválida.' });
+    }
+    db.run(`UPDATE usuarios SET latitude = ?, longitude = ? WHERE usuario = ?`, [lat, lon, usuario], function(err) {
+        if (err) return res.status(500).json({ sucesso: false, erro: 'Não foi possível salvar a localização.' });
+        if (!this.changes) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        res.json({ sucesso: true, latitude: lat, longitude: lon });
+    });
+});
+
 // ==========================================
 // 5. DESCOBERTA E BATE-PAPO PRIVADO
 // ==========================================
@@ -755,17 +768,18 @@ app.get('/api/descobrir', (req, res) => {
     const lat = Number(req.query.latitude), lon = Number(req.query.longitude);
     db.get(`SELECT cidade, latitude, longitude FROM usuarios WHERE usuario = ?`, [usuario], (err, eu) => {
         if (err) return res.status(500).json({ sucesso: false, erro: err.message });
-        const origemLat = Number.isFinite(lat) && lat ? lat : eu?.latitude;
-        const origemLon = Number.isFinite(lon) && lon ? lon : eu?.longitude;
+        const origemLat = Number.isFinite(lat) && lat >= -90 && lat <= 90 ? lat : Number(eu?.latitude);
+        const origemLon = Number.isFinite(lon) && lon >= -180 && lon <= 180 ? lon : Number(eu?.longitude);
+        const temOrigem = Number.isFinite(origemLat) && Number.isFinite(origemLon);
         let sql = `SELECT usuario, nome_exibicao, foto_perfil, bio, cidade, latitude, longitude, is_online FROM usuarios WHERE usuario NOT LIKE 'bot_%' AND usuario <> ? AND cidade <> ''`;
         const params = [usuario];
         if (cidade) { sql += ` AND LOWER(cidade) LIKE LOWER(?)`; params.push(`%${cidade}%`); }
         sql += ` ORDER BY is_online DESC, nome_exibicao COLLATE NOCASE LIMIT 100`;
         db.all(sql, params, (e, rows) => {
             if (e) return res.status(500).json({ sucesso: false, erro: e.message });
-            let pessoas = (rows || []).map(p => ({ ...p, distancia_km: origemLat && origemLon && p.latitude && p.longitude ? Number(distanciaKm(origemLat, origemLon, p.latitude, p.longitude).toFixed(1)) : null }));
-            if (distanciaMax > 0 && origemLat && origemLon) pessoas = pessoas.filter(p => p.distancia_km !== null && p.distancia_km <= distanciaMax).sort((a,b) => a.distancia_km - b.distancia_km);
-            res.json({ sucesso: true, pessoas, usando_localizacao: !!(origemLat && origemLon) });
+            let pessoas = (rows || []).map(p => ({ ...p, distancia_km: temOrigem && Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude)) ? Number(distanciaKm(origemLat, origemLon, p.latitude, p.longitude).toFixed(1)) : null }));
+            if (distanciaMax > 0 && temOrigem) pessoas = pessoas.filter(p => p.distancia_km !== null && p.distancia_km <= distanciaMax).sort((a,b) => a.distancia_km - b.distancia_km);
+            res.json({ sucesso: true, pessoas, usando_localizacao: temOrigem });
         });
     });
 });
