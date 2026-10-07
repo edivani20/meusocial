@@ -11,6 +11,8 @@ const statusRelacionamento = ref('')
 const tempoRelacionamento = ref('')
 const fotoPerfil = ref('')
 const conselhosDados = ref(0)
+const seguidoresDados = ref(0)
+const seguindoDados = ref(0)
 const isPremium = ref(false)
 const nivel = ref('Aprendiz 🌱')
 
@@ -34,7 +36,7 @@ const carregarDadosPerfil = async () => {
     const fotoLocal = localStorage.getItem('foto_perfil')
     if (fotoLocal) fotoPerfil.value = fotoLocal
 
-    const res = await fetch(`https://meusocial-api.onrender.com/api/perfil/${props.usuarioLogado}`)
+    const res = await fetch(`https://meusocial-api.onrender.com/api/perfil/${encodeURIComponent(props.usuarioLogado)}`)
     const data = await res.json()
     if (data.sucesso) {
       nomeExibicao.value = data.nome_exibicao || props.usuarioLogado.split('@')[0]
@@ -46,6 +48,8 @@ const carregarDadosPerfil = async () => {
         localStorage.setItem('foto_perfil', data.foto_perfil)
       }
       conselhosDados.value = data.total_conselhos || 0
+      seguidoresDados.value = data.total_seguidores || 0
+      seguindoDados.value = data.total_seguindo || 0
       isPremium.value = data.is_premium || false
       
       if (conselhosDados.value >= 50) nivel.value = 'Guru dos Relacionamentos ⭐'
@@ -145,11 +149,11 @@ onMounted(carregarDadosPerfil)
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Conselhos</div>
           </div>
           <div>
-            <div class="text-xl font-bold text-[#1A1A2E]">0</div>
+            <div class="text-xl font-bold text-[#1A1A2E]">{{ seguidoresDados }}</div>
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Seguidores</div>
           </div>
           <div>
-            <div class="text-xl font-bold text-[#1A1A2E]">0</div>
+            <div class="text-xl font-bold text-[#1A1A2E]">{{ seguindoDados }}</div>
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Seguindo</div>
           </div>
         </div>

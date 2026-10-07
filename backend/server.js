@@ -416,6 +416,14 @@ db.serialize(() => {
         ultima_atividade DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS seguidores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        seguidor TEXT NOT NULL,
+        seguido TEXT NOT NULL,
+        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(seguidor, seguido)
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS notificacoes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         usuario TEXT,
@@ -600,11 +608,17 @@ app.put('/api/notificacoes/ler-todas/:usuario', (req, res) => {
 // ==========================================
 app.get('/api/perfil/:email', (req, res) => {
     const email = req.params.email;
+    const visitante = req.query.visualizador || '';
     db.get(`SELECT nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, is_premium FROM usuarios WHERE usuario = ?`, [email], (err, user) => {
         if (err || !user) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
         
         db.get(`SELECT COUNT(*) as total FROM conselhos WHERE autor = ?`, [email], (err, conselhos) => {
-            res.json({ 
+            db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [email], (err, seguidores) => {
+                db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [email], (err, seguindo) => {
+                    const consultarSeguindo = visitante && visitante !== email
+                        ? new Promise(resolve => db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [visitante, email], (e, row) => resolve(!!row)))
+                        : Promise.resolve(false);
+                    consultarSeguindo.then(isSeguindo => res.json({
                 sucesso: true, 
                 nome_exibicao: user.nome_exibicao || email.split('@')[0],
                 bio: user.bio || 'Em busca de conselhos...',
@@ -612,8 +626,37 @@ app.get('/api/perfil/:email', (req, res) => {
                 tempo_relacionamento: user.tempo_relacionamento || 'Não informado',
                 foto_perfil: user.foto_perfil || '',
                 is_premium: user.is_premium || false,
-                total_conselhos: conselhos ? conselhos.total : 0
+                total_conselhos: conselhos ? conselhos.total : 0,
+                total_seguidores: seguidores ? seguidores.total : 0,
+                total_seguindo: seguindo ? seguindo.total : 0,
+                is_seguindo: isSeguindo
+                    }));
+                });
             });
+        });
+    });
+});
+
+app.get('/api/seguir/status', (req, res) => {
+    const { seguidor, seguido } = req.query;
+    if (!seguidor || !seguido) return res.status(400).json({ sucesso: false, erro: 'Usuários não informados.' });
+    db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], (err, row) => {
+        if (err) return res.status(500).json({ sucesso: false, erro: err.message });
+        res.json({ sucesso: true, seguindo: !!row });
+    });
+});
+
+app.post('/api/seguir', (req, res) => {
+    const { seguidor, seguido } = req.body || {};
+    if (!seguidor || !seguido) return res.status(400).json({ sucesso: false, erro: 'Usuários não informados.' });
+    if (seguidor === seguido) return res.status(400).json({ sucesso: false, erro: 'Você não pode seguir a si mesmo.' });
+    db.get(`SELECT 1 FROM usuarios WHERE usuario = ?`, [seguido], (err, alvo) => {
+        if (err || !alvo) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        db.get(`SELECT 1 FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], (checkErr, row) => {
+            if (checkErr) return res.status(500).json({ sucesso: false, erro: checkErr.message });
+            const finalizar = (seguindo) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguido = ?`, [seguido], (e1, seguidores) => db.get(`SELECT COUNT(*) as total FROM seguidores WHERE seguidor = ?`, [seguidor], (e2, seguindoTotal) => res.json({ sucesso: true, seguindo, total_seguidores: seguidores?.total || 0, total_seguindo: seguindoTotal?.total || 0 })));
+            if (row) return db.run(`DELETE FROM seguidores WHERE seguidor = ? AND seguido = ?`, [seguidor, seguido], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(false));
+            db.run(`INSERT INTO seguidores (seguidor, seguido) VALUES (?, ?)`, [seguidor, seguido], e => e ? res.status(500).json({ sucesso: false, erro: e.message }) : finalizar(true));
         });
     });
 });

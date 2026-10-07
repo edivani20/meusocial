@@ -33,6 +33,8 @@ const enviandoReacao = ref({})
 const conselhoReagindo = ref(null)
 
 const nomeExibicaoCache = ref({})
+const seguindoUsuarios = ref({})
+const processandoSeguir = ref({})
 
 const formatarData = (dataString) => {
   if (!dataString) return 'Agora mesmo'
@@ -62,6 +64,35 @@ const buscarNomeExibicao = async (email) => {
   }
 }
 
+const carregarStatusSeguir = async (seguido) => {
+  if (!seguido || !seguido.includes('@') || seguido === props.usuarioLogado) return
+  try {
+    const query = new URLSearchParams({ seguidor: props.usuarioLogado, seguido })
+    const res = await fetch(`https://meusocial-api.onrender.com/api/seguir/status?${query}`)
+    const data = await res.json()
+    if (data.sucesso) seguindoUsuarios.value[seguido] = data.seguindo
+  } catch (e) {}
+}
+
+const alternarSeguir = async (seguido) => {
+  if (!seguido || processandoSeguir.value[seguido]) return
+  processandoSeguir.value[seguido] = true
+  try {
+    const res = await fetch('https://meusocial-api.onrender.com/api/seguir', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seguidor: props.usuarioLogado, seguido })
+    })
+    const data = await res.json()
+    if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível atualizar o seguimento.')
+    seguindoUsuarios.value[seguido] = data.seguindo
+    emit('toast', data.seguindo ? 'Agora você está seguindo este usuário.' : 'Você deixou de seguir este usuário.', 'success')
+  } catch (e) {
+    emit('toast', e.message || 'Erro ao seguir usuário.', 'error')
+  } finally {
+    processandoSeguir.value[seguido] = false
+  }
+}
+
 const carregarDesabafos = async () => {
   carregando.value = true
   try {
@@ -76,6 +107,7 @@ const carregarDesabafos = async () => {
         }
       }
       desabafos.value = data.desabafos
+      await Promise.all(data.desabafos.map(post => carregarStatusSeguir(post.autor)))
       quantidadeVisivel.value = 5
     }
   } catch (error) {
@@ -351,6 +383,7 @@ onMounted(carregarDesabafos)
           <div class="flex-1">
             <div class="flex items-center gap-2">
               <span class="font-bold text-sm text-[#1A1A2E]">{{ post.nome_exibicao || post.autor }}</span>
+              <button v-if="post.autor.includes('@') && post.autor !== usuarioLogado" @click="alternarSeguir(post.autor)" :disabled="processandoSeguir[post.autor]" class="text-[10px] font-bold text-[#6C63FF] hover:text-[#FF6B9D] disabled:opacity-50">{{ seguindoUsuarios[post.autor] ? 'Seguindo' : 'Seguir' }}</button>
               <span class="text-xs text-[#8e8e8e]">• {{ formatarData(post.data_publicacao) }}</span>
               <span class="text-xs text-[#6C757D] ml-auto bg-[#f5f5f5] px-2 py-0.5 rounded-full">
                 {{ post.termometro }}
