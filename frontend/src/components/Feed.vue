@@ -94,7 +94,7 @@ const alternarSeguir = async (seguido) => {
 }
 
 const compartilharPost = async (post) => {
-  const link = `https://social-g1ub.onrender.com/?indicado=${encodeURIComponent(post.autor)}`
+  const link = `${window.location.origin}/?indicado=${encodeURIComponent(post.autor)}`
   const dados = { title: 'Desabafa Coração', text: 'Venha participar do Desabafa Coração!', url: link }
   try {
     if (navigator.share) await navigator.share(dados)

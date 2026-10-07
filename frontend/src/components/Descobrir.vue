@@ -86,8 +86,27 @@ const carregarLocalizacaoSalva = async () => {
   } catch (e) {}
 }
 
+const sincronizarLocalizacaoAutorizada = async () => {
+  if (!navigator.geolocation || !window.isSecureContext) return
+  try {
+    const permissao = navigator.permissions?.query ? await navigator.permissions.query({ name: 'geolocation' }) : null
+    if (permissao && permissao.state !== 'granted') return
+    await new Promise(resolve => navigator.geolocation.getCurrentPosition(async pos => {
+      latitude.value = pos.coords.latitude
+      longitude.value = pos.coords.longitude
+      usandoLocalizacao.value = true
+      await fetch('https://meusocial-api.onrender.com/api/perfil/localizacao', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario: props.usuarioLogado, latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+      }).catch(() => {})
+      resolve()
+    }, () => resolve(), { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }))
+  } catch (e) {}
+}
+
 onMounted(async () => {
   await carregarLocalizacaoSalva()
+  await sincronizarLocalizacaoAutorizada()
   await buscar()
 })
 </script>

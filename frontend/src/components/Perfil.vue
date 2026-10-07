@@ -75,7 +75,7 @@ const carregarDadosPerfil = async () => {
 }
 
 const compartilharPerfil = async () => {
-  const link = `https://social-g1ub.onrender.com/?indicado=${encodeURIComponent(props.usuarioLogado)}`
+  const link = `${window.location.origin}/?indicado=${encodeURIComponent(props.usuarioLogado)}`
   try {
     if (navigator.share) await navigator.share({ title: 'Desabafa Coração', text: 'Venha participar do Desabafa Coração!', url: link })
     else { await navigator.clipboard.writeText(link); window.alert('Link de convite copiado!') }

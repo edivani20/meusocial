@@ -15,7 +15,7 @@ const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
 const client = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 const MP_ACCESS_TOKEN = (process.env.MERCADOPAGO_ACCESS_TOKEN || '').trim();
-const APP_URL = (process.env.APP_URL || 'https://meusocial-frontend.onrender.com').replace(/\/$/, '');
+const APP_URL = (process.env.APP_URL || 'https://meudesabafo.onrender.com').replace(/\/$/, '');
 const MP_NOTIFICATION_URL = (process.env.MERCADOPAGO_NOTIFICATION_URL || 'https://meusocial-api.onrender.com/api/pagamentos/webhook').trim();
 const PLANOS_PAGAMENTO = {
     Destaque: { titulo: 'Destaque 24h - Desabafa Coração', valor: 5.00 },
