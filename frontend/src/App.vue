@@ -9,6 +9,8 @@ import Ranking from './components/Ranking.vue'
 import Planos from './components/Planos.vue'
 import Notificacoes from './components/Notificacoes.vue'
 import MinhasMensagens from './components/MinhasMensagens.vue'
+import Descobrir from './components/Descobrir.vue'
+import BatePapo from './components/BatePapo.vue'
 
 const autenticado = ref(false)
 const usuarioLogado = ref('')
@@ -16,6 +18,8 @@ const fotoPerfil = ref('')
 const telaAtual = ref('login')
 const abaAtiva = ref('feed')
 const mostrarMensagens = ref(false)
+const mostrarChat = ref(false)
+const usuarioChatInicial = ref('')
 const mensagemAlvo = ref('')
 const perfilVisualizado = ref('')
 const modoEscuro = ref(localStorage.getItem('modo_escuro') === 'true')
@@ -45,6 +49,7 @@ const fazerLogout = async () => {
   localStorage.clear(); autenticado.value = false; usuarioLogado.value = ''; fotoPerfil.value = ''; telaAtual.value = 'login'
 }
 const abrirMensagemDaNotificacao = (id) => { mensagemAlvo.value = String(id); mostrarMensagens.value = true }
+const abrirChat = (usuario = '') => { usuarioChatInicial.value = usuario; mostrarChat.value = true }
 onMounted(() => {
   if (localStorage.getItem('auth') === 'true') { autenticado.value = true; usuarioLogado.value = localStorage.getItem('user') || ''; fotoPerfil.value = localStorage.getItem('foto_perfil') || '' }
 })
@@ -61,16 +66,16 @@ onMounted(() => {
     <div v-else class="min-h-screen pb-24">
       <nav class="app-nav sticky top-0 z-50"><div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3 cursor-pointer" @click="abaAtiva = 'feed'"><div class="brand-mark"><span>♥</span></div><div><h1 class="brand-title">Desabafa</h1><p class="brand-subtitle hidden sm:block">um espaço para acolher</p></div></div>
-        <div class="flex items-center gap-2 sm:gap-4"><button @click="alternarTema" class="icon-button" :title="modoEscuro ? 'Usar tema claro' : 'Usar tema escuro'">{{ modoEscuro ? '☀️' : '🌙' }}</button><button @click="mensagemAlvo = ''; mostrarMensagens = true" class="icon-button" title="Minhas mensagens">💬</button><Notificacoes :usuarioLogado="usuarioLogado" @abrir-mensagem="abrirMensagemDaNotificacao" /><div class="avatar avatar-small"><img v-if="fotoPerfil" :src="fotoPerfil" /><span v-else>{{ usuarioLogado.charAt(0).toUpperCase() }}</span></div><span class="greeting hidden md:block">Olá, <strong>{{ usuarioLogado.split('@')[0] }}</strong></span><button @click="fazerLogout" class="logout-button">Sair</button></div>
+        <div class="flex items-center gap-2 sm:gap-4"><button @click="alternarTema" class="icon-button" :title="modoEscuro ? 'Usar tema claro' : 'Usar tema escuro'">{{ modoEscuro ? '☀️' : '🌙' }}</button><button @click="abrirChat()" class="icon-button" title="Bate-papo privado">💬</button><Notificacoes :usuarioLogado="usuarioLogado" @abrir-mensagem="abrirMensagemDaNotificacao" @abrir-chat="abrirChat" /><div class="avatar avatar-small"><img v-if="fotoPerfil" :src="fotoPerfil" /><span v-else>{{ usuarioLogado.charAt(0).toUpperCase() }}</span></div><span class="greeting hidden md:block">Olá, <strong>{{ usuarioLogado.split('@')[0] }}</strong></span><button @click="fazerLogout" class="logout-button">Sair</button></div>
       </div></nav>
       <main class="max-w-6xl mx-auto px-0 sm:px-4 lg:px-6"><div class="desktop-layout">
-        <aside class="side-card left-side hidden lg:block"><p class="side-label">NAVEGAÇÃO</p><button @click="abaAtiva = 'feed'" :class="['side-link', abaAtiva === 'feed' && 'active']">🏠 <span>Meu feed</span></button><button @click="abaAtiva = 'ranking'" :class="['side-link', abaAtiva === 'ranking' && 'active']">🏆 <span>Quem mais ajuda</span></button><button @click="abaAtiva = 'planos'" :class="['side-link', abaAtiva === 'planos' && 'active']">✨ <span>Desabafa VIP</span></button><button @click="abaAtiva = 'perfil'" :class="['side-link', abaAtiva === 'perfil' && 'active']">👤 <span>Meu perfil</span></button><div class="quote-card mt-6"><span>“</span><p>Todo sentimento merece ser ouvido.</p></div></aside>
-        <section class="feed-column"><transition name="fade" mode="out-in"><Feed v-if="abaAtiva === 'feed'" :usuarioLogado="usuarioLogado" @logout="fazerLogout" @toast="mostrarToast" @abrir-perfil="perfilVisualizado = $event" /><Ranking v-else-if="abaAtiva === 'ranking'" /><Planos v-else-if="abaAtiva === 'planos'" :usuarioLogado="usuarioLogado" @toast="mostrarToast" /><Perfil v-else :usuarioLogado="usuarioLogado" @logout="fazerLogout" @abrir-perfil="perfilVisualizado = $event" /></transition></section>
+        <aside class="side-card left-side hidden lg:block"><p class="side-label">NAVEGAÇÃO</p><button @click="abaAtiva = 'feed'" :class="['side-link', abaAtiva === 'feed' && 'active']">🏠 <span>Meu feed</span></button><button @click="abaAtiva = 'ranking'" :class="['side-link', abaAtiva === 'ranking' && 'active']">🏆 <span>Quem mais ajuda</span></button><button @click="abaAtiva = 'planos'" :class="['side-link', abaAtiva === 'planos' && 'active']">✨ <span>Desabafa VIP</span></button><button @click="abaAtiva = 'perfil'" :class="['side-link', abaAtiva === 'perfil' && 'active']">👤 <span>Meu perfil</span></button><button @click="abaAtiva = 'descobrir'" :class="['side-link', abaAtiva === 'descobrir' && 'active']">🧭 <span>Pessoas perto</span></button><div class="quote-card mt-6"><span>“</span><p>Todo sentimento merece ser ouvido.</p></div></aside>
+        <section class="feed-column"><transition name="fade" mode="out-in"><Feed v-if="abaAtiva === 'feed'" :usuarioLogado="usuarioLogado" @logout="fazerLogout" @toast="mostrarToast" @abrir-perfil="perfilVisualizado = $event" /><Ranking v-else-if="abaAtiva === 'ranking'" /><Planos v-else-if="abaAtiva === 'planos'" :usuarioLogado="usuarioLogado" @toast="mostrarToast" /><Descobrir v-else-if="abaAtiva === 'descobrir'" :usuarioLogado="usuarioLogado" @abrir-perfil="perfilVisualizado = $event" @abrir-chat="abrirChat($event)" /><Perfil v-else :usuarioLogado="usuarioLogado" @logout="fazerLogout" @abrir-perfil="perfilVisualizado = $event" /></transition></section>
         <aside class="side-card right-side hidden xl:block"><div class="mini-highlight"><span class="highlight-icon">💜</span><div><p class="font-bold">Você não está sozinho</p><p class="text-xs opacity-75 mt-1">Compartilhe o que sente. A comunidade está aqui.</p></div></div><div class="mt-5"><p class="side-label">LEMBRETE DE HOJE</p><p class="daily-message">Cuidar de si também é uma forma de coragem.</p></div></aside>
       </div></main>
-      <MinhasMensagens v-if="mostrarMensagens" :usuarioLogado="usuarioLogado" :abrirId="mensagemAlvo" @fechar="mostrarMensagens = false; mensagemAlvo = ''" /><button @click="abaAtiva = 'feed'" class="floating-action" title="Escrever um desabafo">✎</button>
+      <BatePapo v-if="mostrarChat" :usuarioLogado="usuarioLogado" :usuarioInicial="usuarioChatInicial" @fechar="mostrarChat = false" @toast="mostrarToast" /><MinhasMensagens v-if="mostrarMensagens" :usuarioLogado="usuarioLogado" :abrirId="mensagemAlvo" @fechar="mostrarMensagens = false; mensagemAlvo = ''" /><button @click="abaAtiva = 'feed'" class="floating-action" title="Escrever um desabafo">✎</button>
       <PerfilPublico v-if="perfilVisualizado" :usuario="perfilVisualizado" :usuarioLogado="usuarioLogado" @fechar="perfilVisualizado = ''" @toast="mostrarToast" />
-      <nav class="bottom-nav"><button @click="abaAtiva = 'feed'" :class="{ active: abaAtiva === 'feed' }"><span>🏠</span><small>Feed</small></button><button @click="abaAtiva = 'ranking'" :class="{ active: abaAtiva === 'ranking' }"><span>🏆</span><small>Ranking</small></button><button @click="abaAtiva = 'planos'" :class="{ active: abaAtiva === 'planos' }"><span>✨</span><small>VIP</small></button><button @click="abaAtiva = 'perfil'" :class="{ active: abaAtiva === 'perfil' }"><span>👤</span><small>Perfil</small></button></nav>
+      <nav class="bottom-nav"><button @click="abaAtiva = 'feed'" :class="{ active: abaAtiva === 'feed' }"><span>🏠</span><small>Feed</small></button><button @click="abaAtiva = 'ranking'" :class="{ active: abaAtiva === 'ranking' }"><span>🏆</span><small>Ranking</small></button><button @click="abaAtiva = 'planos'" :class="{ active: abaAtiva === 'planos' }"><span>✨</span><small>VIP</small></button><button @click="abaAtiva = 'descobrir'" :class="{ active: abaAtiva === 'descobrir' }"><span>🧭</span><small>Perto</small></button><button @click="abaAtiva = 'perfil'" :class="{ active: abaAtiva === 'perfil' }"><span>👤</span><small>Perfil</small></button></nav>
     </div>
     <transition name="toast"><div v-if="toast.visivel" :class="['toast-message', `toast-${toast.tipo}`]">{{ toast.mensagem }}</div></transition>
   </div>

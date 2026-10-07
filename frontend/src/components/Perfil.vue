@@ -9,6 +9,9 @@ const nomeExibicao = ref('')
 const bio = ref('')
 const statusRelacionamento = ref('')
 const tempoRelacionamento = ref('')
+const cidade = ref('')
+const latitude = ref(null)
+const longitude = ref(null)
 const fotoPerfil = ref('')
 const conselhosDados = ref(0)
 const seguidoresDados = ref(0)
@@ -29,7 +32,10 @@ const formEdicao = ref({
   tempo_relacionamento: '', 
   novaSenha: '', 
   confirmarSenha: '', 
-  foto_perfil: '' 
+  foto_perfil: '',
+  cidade: '',
+  latitude: null,
+  longitude: null 
 })
 const erroEdicao = ref('')
 const inputArquivo = ref(null)
@@ -46,6 +52,9 @@ const carregarDadosPerfil = async () => {
       bio.value = data.bio || 'Em busca de conselhos...'
       statusRelacionamento.value = data.status_relacionamento || 'Indefinido'
       tempoRelacionamento.value = data.tempo_relacionamento || 'Não informado'
+      cidade.value = data.cidade || ''
+      latitude.value = data.latitude ?? null
+      longitude.value = data.longitude ?? null
       if (data.foto_perfil) {
         fotoPerfil.value = data.foto_perfil
         localStorage.setItem('foto_perfil', data.foto_perfil)
@@ -89,6 +98,9 @@ const abrirModal = () => {
     bio: bio.value,
     status_relacionamento: statusRelacionamento.value,
     tempo_relacionamento: tempoRelacionamento.value,
+    cidade: cidade.value,
+    latitude: latitude.value,
+    longitude: longitude.value,
     foto_perfil: fotoPerfil.value,
     novaSenha: '',
     confirmarSenha: ''
@@ -111,6 +123,15 @@ const processarImagem = (event) => {
   reader.readAsDataURL(file)
 }
 
+const capturarLocalizacao = () => {
+  if (!navigator.geolocation) { erroEdicao.value = 'Seu navegador não oferece localização.'; return }
+  navigator.geolocation.getCurrentPosition(pos => {
+    formEdicao.value.latitude = pos.coords.latitude
+    formEdicao.value.longitude = pos.coords.longitude
+    erroEdicao.value = 'Localização aproximada adicionada. Ela só será usada para calcular distâncias.'
+  }, () => { erroEdicao.value = 'Não foi possível obter a localização. Você pode salvar apenas a cidade.' }, { enableHighAccuracy: false, timeout: 10000 })
+}
+
 const salvarPerfil = async () => {
   erroEdicao.value = ''
   if (formEdicao.value.novaSenha && formEdicao.value.novaSenha !== formEdicao.value.confirmarSenha) {
@@ -131,6 +152,9 @@ const salvarPerfil = async () => {
       bio.value = formEdicao.value.bio
       statusRelacionamento.value = formEdicao.value.status_relacionamento
       tempoRelacionamento.value = formEdicao.value.tempo_relacionamento
+      cidade.value = formEdicao.value.cidade
+      latitude.value = formEdicao.value.latitude
+      longitude.value = formEdicao.value.longitude
       fotoPerfil.value = formEdicao.value.foto_perfil
       localStorage.setItem('foto_perfil', formEdicao.value.foto_perfil)
       modalAberto.value = false
@@ -194,6 +218,7 @@ onMounted(carregarDadosPerfil)
           <span class="text-xs bg-[#f5f5f5] text-[#6C757D] px-3 py-1 rounded-full font-medium flex items-center gap-1">
             <span class="text-[#6C63FF]">⏱️</span> {{ tempoRelacionamento }}
           </span>
+          <span v-if="cidade" class="text-xs bg-[#f5f5f5] text-[#6C757D] px-3 py-1 rounded-full font-medium">📍 {{ cidade }}</span>
         </div>
       </div>
 
@@ -306,6 +331,13 @@ onMounted(carregarDadosPerfil)
               <label class="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-1.5">Tempo</label>
               <input type="text" v-model="formEdicao.tempo_relacionamento" placeholder="Ex: 3 anos" class="w-full bg-[#f8f9fa] border border-[#e9ecef] rounded-xl px-4 py-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/20 transition-all" />
             </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-1.5">Cidade onde mora <span class="font-normal text-[#adb5bd]">(opcional)</span></label>
+            <input type="text" v-model="formEdicao.cidade" placeholder="Ex.: Recife - PE" class="w-full bg-[#f8f9fa] border border-[#e9ecef] rounded-xl px-4 py-3 text-sm text-[#1A1A2E] focus:outline-none focus:border-[#6C63FF]" />
+            <button type="button" @click="capturarLocalizacao" class="mt-2 text-xs text-[#5149c8] font-semibold hover:underline">{{ formEdicao.latitude ? '✓ Localização aproximada ativada' : '＋ Usar localização aproximada para calcular km' }}</button>
+            <p class="text-[10px] text-[#8e8e8e] mt-1">Sua localização exata não será exibida; usamos apenas uma distância aproximada.</p>
           </div>
 
           <div>

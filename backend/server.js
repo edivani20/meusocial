@@ -153,11 +153,11 @@ async function gerarComIA(prompt) {
 // ==========================================
 // FUNÇÕES DE NOTIFICAÇÃO
 // ==========================================
-function enviarNotificacao(usuarioEmail, mensagem, desabafo_id, conselho_id = null) {
+function enviarNotificacao(usuarioEmail, mensagem, desabafo_id = null, conselho_id = null, tipo = 'geral', referencia_id = null) {
     if (!usuarioEmail) return;
     db.run(
-        `INSERT INTO notificacoes (usuario, mensagem, desabafo_id, conselho_id) VALUES (?, ?, ?, ?)`,
-        [usuarioEmail, mensagem, desabafo_id, conselho_id],
+        `INSERT INTO notificacoes (usuario, mensagem, desabafo_id, conselho_id, tipo, referencia_id) VALUES (?, ?, ?, ?, ?, ?)`,
+        [usuarioEmail, mensagem, desabafo_id, conselho_id, tipo, referencia_id],
         function(err) {
             if (err) console.error('Erro ao salvar notificação:', err);
             else console.log(`🔔 Notificação enviada para ${usuarioEmail}`);
@@ -435,6 +435,31 @@ db.serialize(() => {
         desabafo_id INTEGER,
         conselho_id INTEGER
     )`);
+    // Migrações seguras para bancos já existentes
+    db.run(`ALTER TABLE usuarios ADD COLUMN cidade TEXT DEFAULT ''`, () => {});
+    db.run(`ALTER TABLE usuarios ADD COLUMN latitude REAL`, () => {});
+    db.run(`ALTER TABLE usuarios ADD COLUMN longitude REAL`, () => {});
+    db.run(`ALTER TABLE notificacoes ADD COLUMN tipo TEXT DEFAULT 'geral'`, () => {});
+    db.run(`ALTER TABLE notificacoes ADD COLUMN referencia_id INTEGER`, () => {});
+
+    db.run(`CREATE TABLE IF NOT EXISTS chat_solicitacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        solicitante TEXT NOT NULL,
+        destinatario TEXT NOT NULL,
+        status TEXT DEFAULT 'pendente',
+        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+        data_resposta DATETIME,
+        UNIQUE(solicitante, destinatario)
+    )`);
+    db.run(`CREATE TABLE IF NOT EXISTS mensagens_privadas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        solicitacao_id INTEGER NOT NULL,
+        autor TEXT NOT NULL,
+        texto TEXT NOT NULL,
+        lida BOOLEAN DEFAULT 0,
+        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (solicitacao_id) REFERENCES chat_solicitacoes(id)
+    )`);
 
     setTimeout(() => {
         criarBots();
@@ -485,8 +510,8 @@ function aplicarIndicacao(indicadoPor, novoUsuario, callback = () => {}) {
 }
 
 app.post('/api/cadastro', (req, res) => {
-    const { usuario, senha, indicado_por } = req.body;
-    db.run(`INSERT INTO usuarios (usuario, senha) VALUES (?, ?)`, [usuario, senha], function(err) {
+    const { usuario, senha, indicado_por, cidade } = req.body;
+    db.run(`INSERT INTO usuarios (usuario, senha, cidade) VALUES (?, ?, ?)`, [usuario, senha, cidade || ''], function(err) {
         if (err) return res.status(400).json({ sucesso: false, erro: 'Este usuário já existe.' });
         aplicarIndicacao(indicado_por, usuario, () => res.json({ sucesso: true, usuario, seguindo_indicador: !!indicado_por }));
     });
@@ -619,7 +644,7 @@ app.put('/api/notificacoes/ler-todas/:usuario', (req, res) => {
 app.get('/api/perfil/:email', (req, res) => {
     const email = req.params.email;
     const visitante = req.query.visualizador || '';
-    db.get(`SELECT usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, is_premium FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [email, email], (err, user) => {
+    db.get(`SELECT usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, is_premium, cidade, latitude, longitude FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [email, email], (err, user) => {
         if (err || !user) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
         const identidade = user.usuario;
         
@@ -638,6 +663,9 @@ app.get('/api/perfil/:email', (req, res) => {
                 tempo_relacionamento: user.tempo_relacionamento || 'Não informado',
                 foto_perfil: user.foto_perfil || '',
                 is_premium: user.is_premium || false,
+                cidade: user.cidade || '',
+                latitude: user.latitude ?? null,
+                longitude: user.longitude ?? null,
                 total_conselhos: conselhos ? conselhos.total : 0,
                 total_seguidores: seguidores ? seguidores.total : 0,
                 total_seguindo: seguindo ? seguindo.total : 0,
@@ -693,17 +721,17 @@ app.get('/api/seguidores/:usuario', (req, res) => {
 });
 
 app.put('/api/perfil', (req, res) => {
-    const { usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, novaSenha, foto_perfil } = req.body;
+    const { usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, novaSenha, foto_perfil, cidade, latitude, longitude } = req.body;
 
     if (novaSenha && novaSenha.trim() !== '') {
-        db.run(`UPDATE usuarios SET nome_exibicao = ?, bio = ?, status_relacionamento = ?, tempo_relacionamento = ?, senha = ?, foto_perfil = ? WHERE usuario = ?`, 
-        [nome_exibicao, bio, status_relacionamento, tempo_relacionamento, novaSenha, foto_perfil, usuario], function(err) {
+        db.run(`UPDATE usuarios SET nome_exibicao = ?, bio = ?, status_relacionamento = ?, tempo_relacionamento = ?, senha = ?, foto_perfil = ?, cidade = ?, latitude = ?, longitude = ? WHERE usuario = ?`, 
+        [nome_exibicao, bio, status_relacionamento, tempo_relacionamento, novaSenha, foto_perfil, cidade || '', latitude ?? null, longitude ?? null, usuario], function(err) {
             if (err) return res.status(500).json({ sucesso: false, erro: 'Erro ao atualizar.' });
             res.json({ sucesso: true });
         });
     } else {
-        db.run(`UPDATE usuarios SET nome_exibicao = ?, bio = ?, status_relacionamento = ?, tempo_relacionamento = ?, foto_perfil = ? WHERE usuario = ?`, 
-        [nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, usuario], function(err) {
+        db.run(`UPDATE usuarios SET nome_exibicao = ?, bio = ?, status_relacionamento = ?, tempo_relacionamento = ?, foto_perfil = ?, cidade = ?, latitude = ?, longitude = ? WHERE usuario = ?`, 
+        [nome_exibicao, bio, status_relacionamento, tempo_relacionamento, foto_perfil, cidade || '', latitude ?? null, longitude ?? null, usuario], function(err) {
             if (err) return res.status(500).json({ sucesso: false, erro: 'Erro ao atualizar.' });
             res.json({ sucesso: true });
         });
@@ -711,7 +739,121 @@ app.put('/api/perfil', (req, res) => {
 });
 
 // ==========================================
-// 5. ROTAS DO FEED E DESABAFOS
+// 5. DESCOBERTA E BATE-PAPO PRIVADO
+// ==========================================
+function distanciaKm(lat1, lon1, lat2, lon2) {
+    const rad = valor => (Number(valor) * Math.PI) / 180;
+    const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+app.get('/api/descobrir', (req, res) => {
+    const usuario = req.query.usuario || '';
+    const cidade = String(req.query.cidade || '').trim();
+    const distanciaMax = Number(req.query.distancia || 0);
+    const lat = Number(req.query.latitude), lon = Number(req.query.longitude);
+    db.get(`SELECT cidade, latitude, longitude FROM usuarios WHERE usuario = ?`, [usuario], (err, eu) => {
+        if (err) return res.status(500).json({ sucesso: false, erro: err.message });
+        const origemLat = Number.isFinite(lat) && lat ? lat : eu?.latitude;
+        const origemLon = Number.isFinite(lon) && lon ? lon : eu?.longitude;
+        let sql = `SELECT usuario, nome_exibicao, foto_perfil, bio, cidade, latitude, longitude, is_online FROM usuarios WHERE usuario NOT LIKE 'bot_%' AND usuario <> ? AND cidade <> ''`;
+        const params = [usuario];
+        if (cidade) { sql += ` AND LOWER(cidade) LIKE LOWER(?)`; params.push(`%${cidade}%`); }
+        sql += ` ORDER BY is_online DESC, nome_exibicao COLLATE NOCASE LIMIT 100`;
+        db.all(sql, params, (e, rows) => {
+            if (e) return res.status(500).json({ sucesso: false, erro: e.message });
+            let pessoas = (rows || []).map(p => ({ ...p, distancia_km: origemLat && origemLon && p.latitude && p.longitude ? Number(distanciaKm(origemLat, origemLon, p.latitude, p.longitude).toFixed(1)) : null }));
+            if (distanciaMax > 0 && origemLat && origemLon) pessoas = pessoas.filter(p => p.distancia_km !== null && p.distancia_km <= distanciaMax).sort((a,b) => a.distancia_km - b.distancia_km);
+            res.json({ sucesso: true, pessoas, usando_localizacao: !!(origemLat && origemLon) });
+        });
+    });
+});
+
+function localizarUsuario(valor, callback) {
+    db.get(`SELECT usuario, nome_exibicao, foto_perfil FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [valor, valor], callback);
+}
+
+app.post('/api/chat/solicitar', (req, res) => {
+    const { solicitante, destinatario } = req.body || {};
+    if (!solicitante || !destinatario) return res.status(400).json({ sucesso: false, erro: 'Usuários não informados.' });
+    localizarUsuario(destinatario, (err, alvo) => {
+        if (err || !alvo) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        if (alvo.usuario === solicitante) return res.status(400).json({ sucesso: false, erro: 'Você não pode chamar a si mesmo.' });
+        db.get(`SELECT * FROM chat_solicitacoes WHERE solicitante = ? AND destinatario = ?`, [solicitante, alvo.usuario], (e, existente) => {
+            if (existente && existente.status === 'pendente') return res.json({ sucesso: true, pendente: true, id: existente.id });
+            if (existente && existente.status === 'aceita') return res.json({ sucesso: true, aceita: true, id: existente.id });
+            const salvar = () => db.run(`INSERT INTO chat_solicitacoes (solicitante, destinatario, status) VALUES (?, ?, 'pendente')`, [solicitante, alvo.usuario], function(insertErr) {
+                if (insertErr) return res.status(500).json({ sucesso: false, erro: 'Não foi possível enviar o convite.' });
+                db.get(`SELECT nome_exibicao FROM usuarios WHERE usuario = ?`, [solicitante], (_, remetente) => {
+                    const nome = remetente?.nome_exibicao || solicitante.split('@')[0];
+                    enviarNotificacao(alvo.usuario, `${nome} quer conversar com você. Aceita o bate-papo?`, null, null, 'chat_solicitacao', this.lastID);
+                    res.json({ sucesso: true, id: this.lastID, pendente: true });
+                });
+            });
+            if (existente) db.run(`DELETE FROM chat_solicitacoes WHERE id = ?`, [existente.id], salvar); else salvar();
+        });
+    });
+});
+
+app.get('/api/chat/solicitacoes/:usuario', (req, res) => {
+    const usuario = req.params.usuario;
+    db.all(`SELECT c.*, u.nome_exibicao as nome_solicitante, u.foto_perfil as foto_solicitante, u.cidade as cidade_solicitante FROM chat_solicitacoes c JOIN usuarios u ON u.usuario = c.solicitante WHERE c.destinatario = ? AND c.status = 'pendente' ORDER BY c.data_criacao DESC`, [usuario], (err, recebidas) => {
+        if (err) return res.status(500).json({ sucesso: false, erro: err.message });
+        db.all(`SELECT c.*, u.nome_exibicao as nome_destinatario, u.foto_perfil as foto_destinatario FROM chat_solicitacoes c JOIN usuarios u ON u.usuario = c.destinatario WHERE c.solicitante = ? AND c.status = 'pendente' ORDER BY c.data_criacao DESC`, [usuario], (_, enviadas) => res.json({ sucesso: true, recebidas: recebidas || [], enviadas: enviadas || [] }));
+    });
+});
+
+app.put('/api/chat/solicitacoes/:id', (req, res) => {
+    const id = req.params.id, { usuario, acao } = req.body || {};
+    if (!['aceitar', 'recusar'].includes(acao)) return res.status(400).json({ sucesso: false, erro: 'Ação inválida.' });
+    db.get(`SELECT * FROM chat_solicitacoes WHERE id = ? AND destinatario = ? AND status = 'pendente'`, [id, usuario], (err, convite) => {
+        if (err || !convite) return res.status(404).json({ sucesso: false, erro: 'Convite não encontrado.' });
+        const status = acao === 'aceitar' ? 'aceita' : 'recusada';
+        db.run(`UPDATE chat_solicitacoes SET status = ?, data_resposta = CURRENT_TIMESTAMP WHERE id = ?`, [status, id], e => {
+            if (e) return res.status(500).json({ sucesso: false, erro: e.message });
+            db.get(`SELECT nome_exibicao FROM usuarios WHERE usuario = ?`, [usuario], (_, pessoa) => {
+                if (acao === 'aceitar') enviarNotificacao(convite.solicitante, `${pessoa?.nome_exibicao || usuario.split('@')[0]} aceitou seu convite para conversar.`, null, null, 'chat_aceito', id);
+                res.json({ sucesso: true, status, aceito: acao === 'aceitar' });
+            });
+        });
+    });
+});
+
+app.get('/api/chat/conversas/:usuario', (req, res) => {
+    const usuario = req.params.usuario;
+    db.all(`SELECT c.id, c.solicitante, c.destinatario, c.data_resposta, CASE WHEN c.solicitante = ? THEN c.destinatario ELSE c.solicitante END as outro_usuario, u.nome_exibicao as nome_outro, u.foto_perfil as foto_outro, u.cidade as cidade_outro, (SELECT texto FROM mensagens_privadas m WHERE m.solicitacao_id = c.id ORDER BY m.id DESC LIMIT 1) as ultima_mensagem, (SELECT data_criacao FROM mensagens_privadas m WHERE m.solicitacao_id = c.id ORDER BY m.id DESC LIMIT 1) as ultima_data FROM chat_solicitacoes c JOIN usuarios u ON u.usuario = CASE WHEN c.solicitante = ? THEN c.destinatario ELSE c.solicitante END WHERE (c.solicitante = ? OR c.destinatario = ?) AND c.status = 'aceita' ORDER BY ultima_data DESC`, [usuario, usuario, usuario, usuario], (err, rows) => {
+        if (err) return res.status(500).json({ sucesso: false, erro: err.message });
+        res.json({ sucesso: true, conversas: rows || [] });
+    });
+});
+
+app.get('/api/chat/mensagens/:id', (req, res) => {
+    const id = req.params.id, usuario = req.query.usuario;
+    db.get(`SELECT * FROM chat_solicitacoes WHERE id = ? AND (solicitante = ? OR destinatario = ?) AND status = 'aceita'`, [id, usuario, usuario], (err, chat) => {
+        if (err || !chat) return res.status(403).json({ sucesso: false, erro: 'Conversa não autorizada.' });
+        db.all(`SELECT m.*, u.nome_exibicao FROM mensagens_privadas m LEFT JOIN usuarios u ON u.usuario = m.autor WHERE m.solicitacao_id = ? ORDER BY m.id ASC`, [id], (e, rows) => res.json({ sucesso: !e, mensagens: rows || [], erro: e?.message }));
+    });
+});
+
+app.post('/api/chat/mensagens', (req, res) => {
+    const { solicitacao_id, autor, texto } = req.body || {};
+    if (!solicitacao_id || !autor || !texto?.trim()) return res.status(400).json({ sucesso: false, erro: 'Escreva uma mensagem.' });
+    db.get(`SELECT * FROM chat_solicitacoes WHERE id = ? AND (solicitante = ? OR destinatario = ?) AND status = 'aceita'`, [solicitacao_id, autor, autor], (err, chat) => {
+        if (err || !chat) return res.status(403).json({ sucesso: false, erro: 'Conversa não autorizada.' });
+        const destinatario = chat.solicitante === autor ? chat.destinatario : chat.solicitante;
+        db.run(`INSERT INTO mensagens_privadas (solicitacao_id, autor, texto) VALUES (?, ?, ?)`, [solicitacao_id, autor, filtrarPalavroes(texto.trim())], function(e) {
+            if (e) return res.status(500).json({ sucesso: false, erro: e.message });
+            db.get(`SELECT nome_exibicao FROM usuarios WHERE usuario = ?`, [autor], (_, pessoa) => {
+                enviarNotificacao(destinatario, `${pessoa?.nome_exibicao || autor.split('@')[0]} enviou uma mensagem privada.`, null, null, 'chat_mensagem', solicitacao_id);
+                res.json({ sucesso: true, id: this.lastID });
+            });
+        });
+    });
+});
+
+// ==========================================
+// 6. ROTAS DO FEED E DESABAFOS
 // ==========================================
 app.get('/api/desabafos', (req, res) => {
     const query = `

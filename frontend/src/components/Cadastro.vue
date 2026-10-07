@@ -3,7 +3,7 @@ import { ref } from 'vue'
 
 const emit = defineEmits(['cadastro-sucesso', 'ir-para-login'])
 
-const form = ref({ usuario: '', senha: '', confirmarSenha: '' })
+const form = ref({ usuario: '', senha: '', confirmarSenha: '', cidade: '' })
 const erro = ref('')
 const sucesso = ref('')
 const carregando = ref(false)
@@ -28,7 +28,7 @@ const lidarCadastro = async () => {
     const res = await fetch('https://meusocial-api.onrender.com/api/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario: form.value.usuario, senha: form.value.senha, indicado_por: localStorage.getItem('indicado_por') || '' })
+      body: JSON.stringify({ usuario: form.value.usuario, senha: form.value.senha, cidade: form.value.cidade, indicado_por: localStorage.getItem('indicado_por') || '' })
     })
     const data = await res.json()
 
@@ -72,6 +72,11 @@ const lidarCadastro = async () => {
         <div>
           <label class="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-1.5">E-mail ou Usuário</label>
           <input type="text" v-model="form.usuario" placeholder="seu@email.com" class="w-full bg-[#f8f9fa] border border-[#e9ecef] rounded-xl px-4 py-3.5 text-sm text-[#1A1A2E] placeholder-[#adb5bd] focus:outline-none focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/20 transition-all" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#6C757D] uppercase tracking-wider mb-1.5">Cidade onde mora <span class="font-normal text-[#adb5bd]">(opcional)</span></label>
+          <input type="text" v-model="form.cidade" placeholder="Ex.: Recife - PE" class="w-full bg-[#f8f9fa] border border-[#e9ecef] rounded-xl px-4 py-3.5 text-sm text-[#1A1A2E] placeholder-[#adb5bd] focus:outline-none focus:border-[#6C63FF] focus:ring-2 focus:ring-[#6C63FF]/20 transition-all" />
         </div>
 
         <div>

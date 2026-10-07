@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 
 const props = defineProps({ usuarioLogado: String })
-const emit = defineEmits(['abrir-mensagem'])
+const emit = defineEmits(['abrir-mensagem', 'abrir-chat'])
 
 const notificacoes = ref([])
 const carregando = ref(true)
@@ -96,7 +96,8 @@ const marcarComoLida = async (id) => {
 
 const abrirNotificacao = async (notif) => {
   await marcarComoLida(notif.id)
-  if (notif.desabafo_id) emit('abrir-mensagem', notif.desabafo_id)
+  if (notif.tipo && notif.tipo.startsWith('chat_')) emit('abrir-chat')
+  else if (notif.desabafo_id) emit('abrir-mensagem', notif.desabafo_id)
 }
 
 const marcarTodasComoLidas = async () => {
