@@ -11,12 +11,18 @@ const ativandoLocalizacao = ref(false)
 const erro = ref('')
 const aviso = ref('')
 const usandoLocalizacao = ref(false)
+const latitude = ref(null)
+const longitude = ref(null)
 
 const buscar = async () => {
   carregando.value = true
   erro.value = ''
   try {
     const params = new URLSearchParams({ usuario: props.usuarioLogado, cidade: cidade.value, distancia: distancia.value || '0' })
+    if (latitude.value !== null && longitude.value !== null) {
+      params.set('latitude', latitude.value)
+      params.set('longitude', longitude.value)
+    }
     const res = await fetch(`https://meusocial-api.onrender.com/api/descobrir?${params}`)
     const data = await res.json()
     if (!data.sucesso) throw new Error(data.erro || 'Não foi possível buscar pessoas.')
@@ -51,6 +57,8 @@ const ativarLocalizacao = () => {
       if (res.status === 404) throw new Error('O servidor ainda não foi atualizado para salvar localização. Publique também o backend atualizado no Render e tente novamente.')
       if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível salvar a localização.')
       usandoLocalizacao.value = true
+      latitude.value = pos.coords.latitude
+      longitude.value = pos.coords.longitude
       aviso.value = 'Localização aproximada ativada. Agora as distâncias serão calculadas em quilômetros.'
       await buscar()
     } catch (e) {
@@ -66,7 +74,22 @@ const ativarLocalizacao = () => {
   }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 })
 }
 
-onMounted(buscar)
+const carregarLocalizacaoSalva = async () => {
+  try {
+    const res = await fetch(`https://meusocial-api.onrender.com/api/perfil/${encodeURIComponent(props.usuarioLogado)}`)
+    const data = await res.json()
+    if (data.sucesso && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude))) {
+      latitude.value = Number(data.latitude)
+      longitude.value = Number(data.longitude)
+      usandoLocalizacao.value = true
+    }
+  } catch (e) {}
+}
+
+onMounted(async () => {
+  await carregarLocalizacaoSalva()
+  await buscar()
+})
 </script>
 
 <template>
