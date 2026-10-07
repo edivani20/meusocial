@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
-const props = defineProps({ usuarioLogado: String })
+const props = defineProps({ usuarioLogado: String, abrirId: [String, Number] })
 const emit = defineEmits(['fechar'])
 
 const desabafos = ref([])
@@ -19,12 +19,19 @@ const carregarMeusDesabafos = async () => {
     if (data.sucesso) {
       const email = props.usuarioLogado
       desabafos.value = data.desabafos.filter(d => d.autor === email)
+      abrirDesabafoAlvo()
     }
   } catch (error) {
     console.error('Erro ao carregar desabafos:', error)
   } finally {
     carregando.value = false
   }
+}
+
+const abrirDesabafoAlvo = () => {
+  if (!props.abrirId || !desabafos.value.length) return
+  const post = desabafos.value.find(item => String(item.id) === String(props.abrirId))
+  if (post) visualizarDesabafo(post)
 }
 
 const formatarData = (dataString) => {
@@ -93,6 +100,7 @@ const enviarResposta = async () => {
   }
 }
 
+watch(() => props.abrirId, abrirDesabafoAlvo)
 onMounted(carregarMeusDesabafos)
 </script>
 

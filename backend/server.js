@@ -678,6 +678,20 @@ app.post('/api/seguir', (req, res) => {
     });
 });
 
+app.get('/api/seguidores/:usuario', (req, res) => {
+    const alvo = req.params.usuario;
+    db.get(`SELECT usuario FROM usuarios WHERE usuario = ? OR nome_exibicao = ? LIMIT 1`, [alvo, alvo], (err, user) => {
+        if (err || !user) return res.status(404).json({ sucesso: false, erro: 'Usuário não encontrado.' });
+        const identidade = user.usuario;
+        db.all(`SELECT u.usuario, u.nome_exibicao, u.foto_perfil FROM seguidores s JOIN usuarios u ON u.usuario = s.seguidor WHERE s.seguido = ? ORDER BY s.data_criacao DESC`, [identidade], (e1, seguidores) => {
+            db.all(`SELECT u.usuario, u.nome_exibicao, u.foto_perfil FROM seguidores s JOIN usuarios u ON u.usuario = s.seguido WHERE s.seguidor = ? ORDER BY s.data_criacao DESC`, [identidade], (e2, seguindo) => {
+                if (e1 || e2) return res.status(500).json({ sucesso: false, erro: 'Erro ao carregar conexões.' });
+                res.json({ sucesso: true, seguidores: seguidores || [], seguindo: seguindo || [] });
+            });
+        });
+    });
+});
+
 app.put('/api/perfil', (req, res) => {
     const { usuario, nome_exibicao, bio, status_relacionamento, tempo_relacionamento, novaSenha, foto_perfil } = req.body;
 

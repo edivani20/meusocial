@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue'
 import MinhasMensagens from './MinhasMensagens.vue'
 
 const props = defineProps({ usuarioLogado: String })
-const emit = defineEmits(['logout'])
+const emit = defineEmits(['logout', 'abrir-perfil'])
 
 const nomeExibicao = ref('')
 const bio = ref('')
@@ -19,6 +19,9 @@ const nivel = ref('Aprendiz 🌱')
 const modalAberto = ref(false)
 const salvando = ref(false)
 const mostrarMensagens = ref(false)
+const conexoes = ref({ seguidores: [], seguindo: [] })
+const modalConexoes = ref(false)
+const tipoConexao = ref('seguidores')
 const formEdicao = ref({ 
   nome_exibicao: '', 
   bio: '', 
@@ -67,6 +70,16 @@ const compartilharPerfil = async () => {
   try {
     if (navigator.share) await navigator.share({ title: 'Desabafa Coração', text: 'Venha participar do Desabafa Coração!', url: link })
     else { await navigator.clipboard.writeText(link); window.alert('Link de convite copiado!') }
+  } catch (e) {}
+}
+
+const abrirConexoes = async (tipo) => {
+  tipoConexao.value = tipo
+  modalConexoes.value = true
+  try {
+    const res = await fetch(`https://meusocial-api.onrender.com/api/seguidores/${encodeURIComponent(props.usuarioLogado)}`)
+    const data = await res.json()
+    if (data.sucesso) conexoes.value = data
   } catch (e) {}
 }
 
@@ -156,14 +169,14 @@ onMounted(carregarDadosPerfil)
             <div class="text-xl font-bold text-[#1A1A2E]">{{ conselhosDados }}</div>
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Conselhos</div>
           </div>
-          <div>
+          <button @click="abrirConexoes('seguidores')" class="hover:bg-[#f8f7ff] rounded-xl p-1 transition-colors">
             <div class="text-xl font-bold text-[#1A1A2E]">{{ seguidoresDados }}</div>
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Seguidores</div>
-          </div>
-          <div>
+          </button>
+          <button @click="abrirConexoes('seguindo')" class="hover:bg-[#f8f7ff] rounded-xl p-1 transition-colors">
             <div class="text-xl font-bold text-[#1A1A2E]">{{ seguindoDados }}</div>
             <div class="text-[10px] font-semibold text-[#8e8e8e] uppercase tracking-wider">Seguindo</div>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -232,6 +245,18 @@ onMounted(carregarDadosPerfil)
       :usuarioLogado="usuarioLogado"
       @fechar="mostrarMensagens = false"
     />
+
+    <div v-if="modalConexoes" class="fixed inset-0 z-[55] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm" @click.self="modalConexoes = false">
+      <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative max-h-[80vh] overflow-y-auto">
+        <button @click="modalConexoes = false" class="absolute top-4 right-4 text-2xl text-[#8e8e8e]">×</button>
+        <h3 class="text-xl font-bold text-[#1A1A2E] mb-5">{{ tipoConexao === 'seguidores' ? 'Seguidores' : 'Seguindo' }}</h3>
+        <div v-if="!conexoes[tipoConexao].length" class="text-center text-sm text-[#8e8e8e] py-8">Nenhuma pessoa nesta lista ainda.</div>
+        <div v-for="pessoa in conexoes[tipoConexao]" :key="pessoa.usuario" @click="$emit('abrir-perfil', pessoa.usuario)" class="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f8f7ff] cursor-pointer">
+          <div class="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-tr from-[#6C63FF] to-[#FF6B9D] flex items-center justify-center text-white font-bold"><img v-if="pessoa.foto_perfil" :src="pessoa.foto_perfil" class="w-full h-full object-cover" /><span v-else>{{ (pessoa.nome_exibicao || pessoa.usuario).charAt(0).toUpperCase() }}</span></div>
+          <div><p class="font-bold text-sm text-[#1A1A2E]">{{ pessoa.nome_exibicao || pessoa.usuario }}</p><p class="text-xs text-[#8e8e8e]">{{ pessoa.usuario }}</p></div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="modalAberto" class="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
       <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto">

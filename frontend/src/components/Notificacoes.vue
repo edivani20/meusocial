@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 
 const props = defineProps({ usuarioLogado: String })
+const emit = defineEmits(['abrir-mensagem'])
 
 const notificacoes = ref([])
 const carregando = ref(true)
@@ -91,6 +92,11 @@ const marcarComoLida = async (id) => {
   } catch (error) {
     console.error('Erro ao marcar como lida:', error)
   }
+}
+
+const abrirNotificacao = async (notif) => {
+  await marcarComoLida(notif.id)
+  if (notif.desabafo_id) emit('abrir-mensagem', notif.desabafo_id)
 }
 
 const marcarTodasComoLidas = async () => {
@@ -189,7 +195,7 @@ onUnmounted(() => {
           <div 
             v-for="notif in notificacoes" 
             :key="notif.id"
-            @click="marcarComoLida(notif.id)"
+            @click="abrirNotificacao(notif)"
             class="px-4 py-3 border-b border-[#efefef] hover:bg-[#f8f9fa] cursor-pointer transition-colors"
             :class="{ 'bg-[#f0edff]': !notif.lida }"
           >
