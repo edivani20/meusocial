@@ -48,6 +48,7 @@ const ativarLocalizacao = () => {
         body: JSON.stringify({ usuario: props.usuarioLogado, latitude: pos.coords.latitude, longitude: pos.coords.longitude })
       })
       const data = await res.json()
+      if (res.status === 404) throw new Error('O servidor ainda não foi atualizado para salvar localização. Publique também o backend atualizado no Render e tente novamente.')
       if (!res.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível salvar a localização.')
       usandoLocalizacao.value = true
       aviso.value = 'Localização aproximada ativada. Agora as distâncias serão calculadas em quilômetros.'
