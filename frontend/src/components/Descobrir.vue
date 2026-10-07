@@ -77,7 +77,7 @@ onMounted(buscar)
     </div>
 
     <div class="bg-white rounded-2xl border border-[#efefef] p-4 shadow-sm">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl bg-[#f7f5ff] border border-[#e9e5ff] mb-4">
+      <div v-if="!usandoLocalizacao" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-xl bg-[#f7f5ff] border border-[#e9e5ff] mb-4">
         <div><p class="font-bold text-sm text-[#1A1A2E]">Quer ver a distância em quilômetros?</p><p class="text-xs text-[#6C757D] mt-1">Clique para permitir sua localização aproximada. Sua localização exata não será mostrada.</p></div>
         <button @click="ativarLocalizacao" :disabled="ativandoLocalizacao || usandoLocalizacao" class="shrink-0 rounded-xl px-4 py-3 text-xs font-bold text-white bg-[#6C63FF] hover:opacity-90 disabled:opacity-60">{{ ativandoLocalizacao ? 'Aguardando permissão...' : (usandoLocalizacao ? '✓ Localização ativa' : 'Ativar localização') }}</button>
       </div>
